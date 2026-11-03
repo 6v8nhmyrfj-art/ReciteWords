@@ -39,7 +39,7 @@ window.StudentAuth = (() => {
   const name=String(f.get('studentName')).trim();if(!name){message('请填写学生姓名，体验时请使用化名。');return;}
   if(String(f.get('invite')).trim().toUpperCase()!=='DEMO2026'){message('邀请码不正确，体验邀请码为 DEMO2026。');return;}
   if(existing){message('该体验号码已经注册，请切换到登录。');return;}
-  const account={id:crypto.randomUUID(),name,phone,className:'盛老师 · 词汇体验班',provider:wechat?'微信流程模拟':'手机号流程模拟'};
+  const account={id:newRecordId(),name,phone,className:'盛老师 · 词汇体验班',provider:wechat?'微信流程模拟':'手机号流程模拟'};
   accounts.push(account);finish(account);
  });
  return {get accounts(){return accounts;},demo(){let a=accounts.find(x=>x.id==='demo-student');if(!a){a={id:'demo-student',name:'体验学生',phone:'13800000009',className:'盛老师 · 词汇体验班',provider:'体验入口（非真实认证）'};accounts.push(a);}localStorage.setItem('sheng-classroom-role-v1','student');finish(a);},get user(){return user;},get key(){return user?'sheng-vocab-student-'+user.id:'sheng-vocab-guest-unused';},render,escape,masked,
