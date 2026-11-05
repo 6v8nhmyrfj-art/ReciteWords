@@ -11,7 +11,7 @@ Deno.serve(async req=>{
   if(!session.ok)return reply('请重新登录',401)
   const {id}=await session.json()
   const privileged={apikey:admin,Authorization:'Bearer '+admin,'Content-Type':'application/json'}
-  const member=await fetch(base+'/rest/v1/rw_members?user_id=eq.'+encodeURIComponent(id)+'&role=eq.teacher&select=user_id',{headers:privileged})
+  const member=await fetch(base+'/rest/v1/rw_members?user_id=eq.'+encodeURIComponent(id)+'&role=eq.teacher&select=user_id',{headers:{apikey:admin,Authorization:authorization}})
   if(!member.ok||(await member.json()).length!==1)return reply('仅教师可创建账号',403)
   const {number,name,password}=await req.json()
   if(typeof number!=='string'||!/^[a-z0-9_-]{1,24}$/.test(number)||typeof name!=='string'||!name.trim()||name.length>30||typeof password!=='string'||password.length<10||password.length>72)return reply('请检查学号、姓名和密码长度',400)
