@@ -14,7 +14,19 @@ async function loadRoom(){
  if(!member)throw Error('此账号尚未加入班级，请联系老师。');
  const tasks=await api('/rest/v1/rw_tasks?select=id,title,words&order=created_at.desc');
  el('tasks').replaceChildren();if(!tasks.length)el('tasks').textContent='还没有任务。';
- for(const task of tasks){const d=document.createElement('details'),s=document.createElement('summary');s.textContent=task.title;d.append(s);task.words.forEach((w,i)=>{const p=document.createElement('p');p.textContent=w.en+' · '+w.zh+' ';if(member.role==='student'){const b=document.createElement('button');b.textContent='记为已学';b.onclick=guard(async()=>{await api('/rest/v1/rw_progress','POST',{user_id:me.id,task_id:task.id,word_index:i});b.disabled=true;b.textContent='已保存'});p.append(b)}d.append(p)});el('tasks').append(d)}
+ for(const task of tasks){const d=document.createElement('details'),s=document.createElement('summary');s.textContent=task.title;d.append(s);
+const today=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Shanghai'}).format(new Date());
+const progress=member.role==='student'?await api('/rest/v1/rw_progress?select=word_index&task_id=eq.'+task.id+'&learned_on=eq.'+today):[];
+const seen=new Set(progress.map(row=>row.word_index));
+if(member.role==='teacher'){
+ const check=document.createElement('button'),report=document.createElement('div');
+ check.textContent='查看今日打卡';check.onclick=guard(async()=>{
+ const rows=await api('/rest/v1/rpc/rw_today','POST',{p_task:task.id});
+ report.replaceChildren();if(!rows.length)report.textContent='班级内暂无学生。';
+ for(const row of rows){const line=document.createElement('p');line.textContent=row.student_name+' · '+row.learned+'/'+task.words.length+(Number(row.learned)===task.words.length?' · 已打卡':'');report.append(line)}
+ });d.append(check,report);
+}
+task.words.forEach((w,i)=>{const p=document.createElement('p');p.textContent=w.en+' · '+w.zh+' ';if(member.role==='student'){const b=document.createElement('button');b.disabled=seen.has(i);b.textContent=b.disabled?'今日已学':'记为已学';b.onclick=guard(async()=>{await api('/rest/v1/rw_progress','POST',{user_id:me.id,task_id:task.id,word_index:i});b.disabled=true;b.textContent='已保存'});p.append(b)}d.append(p)});el('tasks').append(d)}
  el('person').textContent=member.display_name;el('publish').hidden=member.role!=='teacher';el('room').hidden=false;el('login').hidden=true;el('msg').textContent='';
 }
 el('login').onsubmit=guard(async e=>{token='';const data=Object.fromEntries(new FormData(e.target));const session=await api('/auth/v1/token?grant_type=password','POST',data);token=session.access_token;sessionStorage.setItem('rw-session',token);e.target.reset();await loadRoom()});
