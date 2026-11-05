@@ -18,6 +18,13 @@ const grid=E('div',null,'grid');for(const [v,k] of [[summary.today,'今日已学
 if(i===0||i===1){const n=known.filter(x=>x.state!=='relearn'&&Date.parse(x.due_at)<=Date.now()).length;if(n)app.append(row('熟词抽查',n+' 个已斩词到期',()=>start({title:'熟词抽查',words:[]},'check')));app.append(row('到期复习',due.length?due.length+' 词待巩固':'今天的到期词已清',()=>due.length?start({title:'到期复习',words:due.slice(0,20).map(r=>({en:r.word,zh:r.meaning}))},'review'):home(i)))}
 if(i===1||i===2){for(const t of [basic,...tasks])app.append(row(t.title,t.words.length+' 词',()=>start(t,i===1?'self':'quiz')))}
 if(i===3)await profile({app,E,button,row,api,me,member,summary,tasks,due,logout,active:()=>stamp===version,review:()=>home(1)});}
+let audio;
+function prepareChime(){try{const C=window.AudioContext||window.webkitAudioContext;if(C){audio??=new C();if(audio.state==='suspended')audio.resume().catch(()=>{})}}catch{}}
+function feedback(b,ok){
+ b.style.background=ok?'#d8f5df':'#ffe1df';b.style.color=ok?'#145c30':'#912822';b.style.borderColor=ok?'#339557':'#cd5047';b.style.opacity='1';
+ if(ok&&audio?.state==='running'){const o=audio.createOscillator(),g=audio.createGain(),t=audio.currentTime;o.frequency.value=880;o.connect(g);g.connect(audio.destination);g.gain.setValueAtTime(.001,t);g.gain.exponentialRampToValueAtTime(.09,t+.012);g.gain.exponentialRampToValueAtTime(.001,t+.22);o.start(t);o.stop(t+.23)}
+ if(!ok&&!matchMedia('(prefers-reduced-motion: reduce)').matches)b.animate?.([{transform:'translateX(0)'},{transform:'translateX(-5px)'},{transform:'translateX(5px)'},{transform:'translateX(0)'}],{duration:260});
+}
 function mix(items){const a=[...items];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 function start(t,mode){if(day()!==loadedDay)return home(tab);const stamp=++version,key='rw-study:'+me.id+':'+(t.id||'basic');let list=t.words.map((_,i)=>i);if(mode==='quiz')return assessment({t,basic,app,E,button,mix,api,active:()=>stamp===version,back:()=>home(tab)});if(mode==='task')list=pending(t);if(mode==='self'){const n=Number(localStorage.getItem(key))||0;let queue;try{queue=JSON.parse(localStorage.getItem(key+':queue'))}catch{}if(Array.isArray(queue)&&queue.length&&queue.every(x=>Number.isInteger(x)&&x>=0&&x<t.words.length))list=queue;else if(n>0&&n<list.length)list=list.slice(n)}
 if(mode==='self')list=list.filter(k=>!known.some(x=>x.word===norm(t.words[k].en)&&x.state!=='relearn'));
@@ -52,17 +59,17 @@ for(const choice of options){
  const option=button(choice.zh,async()=>{
   if(busy||stamp!==version)return;
   if(day()!==loadedDay)return home(tab);
-  if(!pendingChoice&&norm(choice.en)!==target)speak([w.en,sentence]);
+  prepareChime();if(!pendingChoice&&norm(choice.en)!==target)speak([w.en,sentence]);
   busy=true;pendingChoice??=choice;requestId??=crypto.randomUUID();
   const buttons=[...card.querySelectorAll('.option')];buttons.forEach(b=>b.disabled=true);
   try{
    const ok=await api('/rest/v1/rpc/rw_practice','POST',{p_id:requestId,p_mode:mode==='relearn'?'review':mode,p_task:t.id||null,p_index:index,p_word:norm(w.en),p_choice:pendingChoice.en});
    if(stamp!==version)return;
-   tries++;requestId=null;pendingChoice=null;
+   feedback(option,ok);tries++;requestId=null;pendingChoice=null;
    if(!ok){card.querySelector('button.back')?.remove();hint.textContent=(sentence===supplied&&context?.zh?context.zh+' ':'')+w.en+' 的意思是「'+w.zh+'」。再选一次。';buttons.forEach(b=>b.disabled=false);return}
    correct++;list.shift();
    if(mode==='self'){localStorage.setItem(key+':queue',JSON.stringify(list));localStorage.setItem(key,String(list[0]??0))}
-   draw();
+   await new Promise(resolve=>setTimeout(resolve,420));draw();
   }catch(error){hint.textContent='保存失败，请点刚才的选项重试。';throw error}
   finally{busy=false}
  },'option');card.append(option)
