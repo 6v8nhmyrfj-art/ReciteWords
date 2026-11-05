@@ -23,6 +23,7 @@ async function loadRoom(){
  [member]=await api('/rest/v1/rw_members?user_id=eq.'+encodeURIComponent(me.id)+'&select=display_name,role,password_changed');
  if(!member)throw Error('此账号尚未加入班级，请联系老师。');
  if(member.role==='student'&&!member.password_changed){el('login').hidden=true;el('welcome').hidden=true;el('change').hidden=false;el('room').hidden=true;el('msg').textContent='';return}
+ if(member.role==='teacher'){const {teacher}=await import('./teacher.mjs');const signout=el('logout');await teacher(api,()=>signout.click(),el('enroll'));return}
  el('change').hidden=true;
  const tasks=await api('/rest/v1/rw_tasks?select=id,title,words&order=created_at.desc');
  sets=[basic,...tasks.filter(t=>t.words.length)];el('tasks').replaceChildren();if(!tasks.length)el('tasks').textContent='还没有任务。';
@@ -61,7 +62,7 @@ function showTab(label){
  const w=list[index];const question=document.createElement('h3');question.textContent=label==='测单词'?w.zh:w.en;card.append(question);
  const next=()=>{index++;if(label==='自主学习')localStorage.setItem(resumeKey,String(index));draw()};
  if(label==='自主学习'){card.append(button('查看释义',()=>{card.replaceChildren(question,document.createTextNode(w.zh),button('下一词',next))}));return}
- const form=document.createElement('form'),input=document.createElement('input'),submit=document.createElement('button');input.required=true;input.placeholder='输入英文单词';input.autocomplete='off';submit.textContent='核对';form.append(input,submit);card.append(form);form.onsubmit=e=>{e.preventDefault();const ok=input.value.trim().toLowerCase()===w.en.toLowerCase();if(ok)score++;form.replaceWith(document.createTextNode(ok?'答对了':'正确拼写：'+w.en),button('下一题',next))};
+ const form=document.createElement('form'),input=document.createElement('input'),submit=document.createElement('button');input.required=true;input.placeholder='输入英文单词';input.autocomplete='off';submit.textContent='核对';form.append(input,submit);card.append(form);const answerId=crypto.randomUUID();const chosen=sets[choice.selectedIndex];form.onsubmit=guard(async e=>{submit.disabled=true;let ok;try{ok=await api('/rest/v1/rpc/rw_answer','POST',{p_id:answerId,p_task:chosen.id||null,p_index:index,p_answer:input.value.trim()})}finally{submit.disabled=false}if(ok)score++;form.replaceWith(document.createTextNode(ok?'答对了':'正确拼写：'+w.en),button('下一题',next))});
  }draw()}choice.onchange=start;start()
 }
 for(const label of ['班级任务','自主学习','测单词','我的'])el('nav').append(button(label,()=>showTab(label)));

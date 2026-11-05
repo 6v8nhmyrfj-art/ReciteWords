@@ -1,0 +1,9 @@
+create or replace function public.rw_answer(p_id uuid,p_task uuid,p_index integer,p_answer text) returns boolean language plpgsql security definer set search_path='' as $$ declare target text; ok boolean;begin
+select t.words->p_index->>'en' into target from public.rw_tasks t join public.rw_members m on m.user_id=auth.uid() where t.id=p_task and m.role='student' and m.password_changed and (t.cohort is null or t.cohort=m.cohort) and p_index>=0;
+if p_task is null and p_index>=0 and exists(select from public.rw_members where user_id=auth.uid() and role='student' and password_changed) then target=('["discover","balloon","wheel","central","although","attach","pull","international","path","technique","depend","describe","decide","develop","practice","improve","knowledge","journey","prepare","remember"]'::jsonb)->>p_index;end if;
+if target is null then raise exception 'invalid task'; end if;
+ok=lower(trim(target))=lower(trim(p_answer));insert into public.rw_answers values(p_id,auth.uid(),lower(trim(target)),ok,now()) on conflict do nothing;return ok;end$$;
+create function public.rw_move_student(p_student uuid,p_cohort text) returns void language plpgsql security definer set search_path='' as $$begin
+if not exists(select from public.rw_members where user_id=auth.uid() and role='teacher') or p_cohort not in ('七年级','八年级第一班','八年级第二班','九年级强化班') or p_cohort is null then raise exception 'invalid assignment';end if;
+update public.rw_members set cohort=p_cohort where user_id=p_student and role='student';end$$;
+revoke all on function public.rw_move_student(uuid,text) from public,anon;grant execute on function public.rw_move_student(uuid,text) to authenticated;
