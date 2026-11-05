@@ -1,0 +1,24 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>班级任务 · 盛老师词汇训练</title><link rel="stylesheet" href="style.css"><main style="max-width:650px;margin:3rem auto;padding:1rem"><h1>班级任务</h1><p id="msg" role="status"></p><form id="login"><label>账号邮箱<input class="input" name="email" type="email" required autocomplete="username"></label><label>密码<input class="input" name="password" type="password" required autocomplete="current-password"></label><button class="primary">登录</button></form><section id="room" hidden><button id="logout">退出登录</button><h2 id="person"></h2><form id="publish" hidden><label>任务名称<input name="title" class="input" required maxlength="80"></label><label>每行一个单词，用制表符分隔单词和释义<textarea name="words" required rows="6" class="input"></textarea></label><button class="primary">发布任务</button></form><h2>已发布任务</h2><div id="tasks"></div></section></main><script type="module">
+const url='https://nnooeadfgsvbddrjwyan.supabase.co',key='sb_publishable_NAlh-hkQ2852o8ElBw06ZQ_M-kIQ0pY';
+const el=id=>document.getElementById(id);
+let token=sessionStorage.getItem('rw-session')||'',member;
+async function api(path,method='GET',body){
+ const r=await fetch(url+path,{method,headers:{apikey:key,...(token?{Authorization:'Bearer '+token}:{}),'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});
+ if(!r.ok)throw Error(r.status===401?'请重新登录。':'操作失败，请检查账号、网络或权限。');
+ const t=await r.text();return t?JSON.parse(t):null;
+}
+function guard(fn){return async e=>{e?.preventDefault();try{await fn(e)}catch(err){el('msg').textContent=err.message}}}
+async function loadRoom(){
+ const me=await api('/auth/v1/user');
+ [member]=await api('/rest/v1/rw_members?user_id=eq.'+encodeURIComponent(me.id)+'&select=display_name,role');
+ if(!member)throw Error('此账号尚未加入班级，请联系老师。');
+ const tasks=await api('/rest/v1/rw_tasks?select=id,title,words&order=created_at.desc');
+ el('tasks').replaceChildren();if(!tasks.length)el('tasks').textContent='还没有任务。';
+ for(const task of tasks){const d=document.createElement('details'),s=document.createElement('summary');s.textContent=task.title;d.append(s);task.words.forEach((w,i)=>{const p=document.createElement('p');p.textContent=w.en+' · '+w.zh+' ';if(member.role==='student'){const b=document.createElement('button');b.textContent='记为已学';b.onclick=guard(async()=>{await api('/rest/v1/rw_progress','POST',{user_id:me.id,task_id:task.id,word_index:i});b.disabled=true;b.textContent='已保存'});p.append(b)}d.append(p)});el('tasks').append(d)}
+ el('person').textContent=member.display_name;el('publish').hidden=member.role!=='teacher';el('room').hidden=false;el('login').hidden=true;el('msg').textContent='';
+}
+el('login').onsubmit=guard(async e=>{token='';const data=Object.fromEntries(new FormData(e.target));const session=await api('/auth/v1/token?grant_type=password','POST',data);token=session.access_token;sessionStorage.setItem('rw-session',token);e.target.reset();await loadRoom()});
+el('publish').onsubmit=guard(async e=>{const f=new FormData(e.target),words=f.get('words').trim().split(/\r?\n/).map(line=>{const [en,zh]=line.trim().split(/\t+/);if(!en||!zh)throw Error('请从表格复制英文和释义两列。');return {en,zh}});await api('/rest/v1/rw_tasks','POST',{title:f.get('title').trim(),words});e.target.reset();await loadRoom();el('msg').textContent='任务已发布'});
+el('logout').onclick=guard(async()=>{try{await api('/auth/v1/logout','POST')}finally{sessionStorage.removeItem('rw-session');location.reload()}});
+if(token)guard(loadRoom)();
+</script></html>
