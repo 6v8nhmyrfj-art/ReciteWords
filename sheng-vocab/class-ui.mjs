@@ -2,7 +2,7 @@ import {createClassClient,loginIdentity} from './class-api.mjs';
 const el=id=>document.getElementById(id);
 const storageKey='rw-cloud-session-v1';
 function readSession(){try{return JSON.parse(localStorage.getItem(storageKey))||{}}catch{return {}}}
-let saved=readSession(),token=saved.access_token||'',member,refreshing;
+let saved=readSession(),token=saved.access_token||'',member,memberId,refreshing;
 function remember(s){saved={access_token:s.access_token,refresh_token:s.refresh_token,expires_at:s.expires_at||Math.floor(Date.now()/1000)+s.expires_in};token=saved.access_token;localStorage.setItem(storageKey,JSON.stringify(saved))}
 function clearSession(){localStorage.removeItem(storageKey);sessionStorage.removeItem('rw-session');token='';saved={}}
 function loginScreen(){clearSession();location.reload()}
@@ -19,7 +19,7 @@ async function api(path,method,body){
 }
 function guard(fn){return async e=>{e?.preventDefault();try{await fn(e)}catch(err){el('msg').textContent=err.message}}}
 async function loadRoom(){
- const me=await api('/auth/v1/user');
+ const me=await api('/auth/v1/user');memberId=me.id;
  [member]=await api('/rest/v1/rw_members?user_id=eq.'+encodeURIComponent(me.id)+'&select=display_name,role,password_changed');
  if(!member)throw Error('此账号尚未加入班级，请联系老师。');
  if(member.role==='student'&&!member.password_changed){el('login').hidden=true;el('welcome').hidden=true;el('change').hidden=false;el('room').hidden=true;el('msg').textContent='';return}
@@ -55,10 +55,11 @@ function showTab(label){
  if(label==='我的'){const p=document.createElement('p');p.textContent=member.display_name+' · 学生';extra.append(p,button('退出登录',()=>el('logout').click()));return}
  const choice=document.createElement('select');for(const set of sets){const option=document.createElement('option');option.textContent=set.title;choice.append(option)}extra.append(choice);
  const card=document.createElement('article');extra.append(card);
- function start(){const list=sets[choice.selectedIndex].words.slice();let index=0,score=0;
- function draw(){card.replaceChildren();if(index===list.length){card.textContent=label==='测单词'?'本次答对 '+score+' / '+list.length:'已完成本轮学习';card.append(button('再来一轮',start));return}
+ function start(){const list=sets[choice.selectedIndex].words.slice();const resumeKey='rw-study:'+memberId+':'+(sets[choice.selectedIndex].id||'basic');
+ let index=label==='自主学习'?Math.min(list.length,Math.max(0,Number(localStorage.getItem(resumeKey))||0)):0,score=0;
+ function draw(){card.replaceChildren();if(index===list.length){card.textContent=label==='测单词'?'本次答对 '+score+' / '+list.length:'已完成本轮学习';card.append(button('再来一轮',()=>{if(label==='自主学习')localStorage.removeItem(resumeKey);start()}));return}
  const w=list[index];const question=document.createElement('h3');question.textContent=label==='测单词'?w.zh:w.en;card.append(question);
- const next=()=>{index++;draw()};
+ const next=()=>{index++;if(label==='自主学习')localStorage.setItem(resumeKey,String(index));draw()};
  if(label==='自主学习'){card.append(button('查看释义',()=>{card.replaceChildren(question,document.createTextNode(w.zh),button('下一词',next))}));return}
  const form=document.createElement('form'),input=document.createElement('input'),submit=document.createElement('button');input.required=true;input.placeholder='输入英文单词';input.autocomplete='off';submit.textContent='核对';form.append(input,submit);card.append(form);form.onsubmit=e=>{e.preventDefault();const ok=input.value.trim().toLowerCase()===w.en.toLowerCase();if(ok)score++;form.replaceWith(document.createTextNode(ok?'答对了':'正确拼写：'+w.en),button('下一题',next))};
  }draw()}choice.onchange=start;start()

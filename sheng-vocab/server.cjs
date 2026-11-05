@@ -1,6 +1,6 @@
 const http=require('node:http'),fs=require('node:fs'),path=require('node:path');
-const allowed=new Set(['index.html','style.css','app.js','auth.js','classroom.js','classroom.css','bookshelf.js','bookshelf.css','compat.js','单词库导入模板.csv']);
-const types={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.csv':'text/csv; charset=utf-8'};
+const allowed=new Set(['index.html','class.html','class-api.mjs','class-ui.mjs','style.css','app.js','auth.js','classroom.js','classroom.css','bookshelf.js','bookshelf.css','compat.js','单词库导入模板.csv']);
+const types={'.mjs':'text/javascript; charset=utf-8','.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.csv':'text/csv; charset=utf-8'};
 const server=http.createServer((req,res)=>{
  if(!['GET','HEAD'].includes(req.method)){res.writeHead(405,{'Allow':'GET, HEAD'});return res.end();}
  let name;try{name=decodeURIComponent(new URL(req.url,'http://localhost').pathname).slice(1)||'index.html';}catch{res.writeHead(400);return res.end('Bad request');}
