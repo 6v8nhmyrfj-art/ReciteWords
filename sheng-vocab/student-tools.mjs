@@ -1,4 +1,4 @@
-import {audible,quiet} from './reading-audio.mjs';
+import {audible,quiet,speak} from './reading-audio.mjs';
 import {contexts,example,choices,norm} from './word-context.mjs';
 
 function corrections(rows,E){
@@ -22,6 +22,7 @@ export function assessment({t,basic,app,E,button,mix,api,active,back}){
   if(i===words.length){translation();return}
   const w=words[i],read=i%2===0,bar=E('progress');bar.max=words.length;bar.value=i;
   card.replaceChildren(E('small','第 '+(i+1)+' / '+words.length+' 词'),E('br'),bar,E('p',read?'阅读 · 选择中文意思':'写作 · 拼出本书对应的英文'),audible(read?w.en:w.zh,'word',read?'en-US':'zh-CN'));
+  speak([read?w.en:w.zh],read?'en-US':'zh-CN');
   if(read){for(const opt of choices(w,[...unique,...basic.words],mix))card.append(button(opt.zh,()=>record(w,'阅读',opt.en),'option'))}
   else{
    const form=E('form'),input=E('input'),submit=E('button','提交','primary');input.required=true;input.placeholder='输入英文';input.autocomplete='off';input.autocapitalize='none';input.spellcheck=false;
