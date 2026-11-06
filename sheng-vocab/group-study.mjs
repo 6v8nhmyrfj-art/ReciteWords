@@ -60,13 +60,14 @@ export async function groupStudy({t,basic,mode,api,me,app,E,button,mix,active,ba
    const b=button(option.w.en,async()=>{
     if(locked||!active())return;locked=true;prepareChime();pending??=option;id??=crypto.randomUUID();
     card.querySelectorAll('.option').forEach(x=>x.disabled=true);
+    const began=performance.now(),predicted=norm(pending.w.en)===norm(r.w.en);feedback(b,predicted);hint.textContent='正在保存…';
     try{
      const ok=await api('/rest/v1/rpc/rw_practice','POST',{p_id:id,p_mode:'self',p_task:r.task,p_index:r.index,p_word:norm(r.w.en),p_choice:pending.w.en});
      if(!active())return;
-     feedback(b,ok);pending=null;id=null;
+     if(ok!==predicted)feedback(b,ok);hint.textContent='已保存';pending=null;id=null;
      if(!ok){hint.textContent='再想一想：'+r.w.en+' · '+r.w.zh;speak([r.w.en,example(r.w)?.en]);card.querySelectorAll('.option').forEach(x=>x.disabled=false);return}
      state.review.shift();save();
-     await new Promise(resolve=>setTimeout(resolve,520));
+     await new Promise(resolve=>setTimeout(resolve,Math.max(0,180-(performance.now()-began))));
      if(active())review(indices,done)
     }catch(e){hint.textContent='保存失败，请重新点选刚才的答案。';card.querySelectorAll('.option').forEach(x=>x.disabled=x!==b);throw e}
     finally{locked=false}
@@ -88,8 +89,8 @@ export async function groupStudy({t,basic,mode,api,me,app,E,button,mix,active,ba
     state.answers.push({task:r.task,index:r.index,choice:option.w.en,groupIndex:index});
     save();
     card.querySelectorAll('button').forEach(x=>x.disabled=true);
-    feedback(b,norm(option.w.en)===norm(r.w.en));
-    await new Promise(resolve=>setTimeout(resolve,520));
+    feedback(b,norm(option.w.en)===norm(r.w.en));card.append(E('small','本机已记录 · 本组结束后保存到云端'));
+    await new Promise(resolve=>setTimeout(resolve,180));
     if(active())quiz()
    },'option');card.append(b)
   }
@@ -120,3 +121,4 @@ export async function groupStudy({t,basic,mode,api,me,app,E,button,mix,active,ba
  if(!groups.length)return back();
  app.replaceChildren(E('h1',t.title),E('p','每组 10 词：学 3 词并复习，再学 3 词并复习，最后学 4 词并复习。复习看中文选英文，最后做 5 道句子填空题，全部答对通过。'),E('p','最后一组不足 10 词时，用本书已学词或基础词补足。'),button(state.attempt?'继续本组测试':'开始 / 继续第 '+(state.group+1)+' 组',()=>state.attempt?quiz():startLearning(),'primary'));
 }
+

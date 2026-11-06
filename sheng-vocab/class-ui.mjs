@@ -1,13 +1,17 @@
-import {createClassClient,loginIdentity} from './class-api.mjs';
+import {createDataClient} from './data-client.mjs?v=performance-20261106';
+import {backendConfig} from './backend-config.mjs?v=performance-20261106';
+import {createClassClient,loginIdentity} from './class-api.mjs?v=performance-20261106';
 const el=id=>document.getElementById(id);
-const storageKey='rw-cloud-session-v1';
+const storageKey='rw-cloud-session-v2:'+backendConfig.environment;
+if(backendConfig.environment==='nnooeadfgsvbddrjwyan'&&!localStorage.getItem(storageKey)&&localStorage.getItem('rw-cloud-session-v1')){localStorage.setItem(storageKey,localStorage.getItem('rw-cloud-session-v1'));localStorage.removeItem('rw-cloud-session-v1')}
+let dataClient;
 function readSession(){try{return JSON.parse(localStorage.getItem(storageKey))||{}}catch{return {}}}
 let saved=readSession(),token=saved.access_token||'',member,memberId,refreshing;
 function remember(s){saved={access_token:s.access_token,refresh_token:s.refresh_token,expires_at:s.expires_at||Math.floor(Date.now()/1000)+s.expires_in};token=saved.access_token;localStorage.setItem(storageKey,JSON.stringify(saved))}
-function clearSession(){localStorage.removeItem(storageKey);sessionStorage.removeItem('rw-session');token='';saved={}}
+function clearSession(){dataClient?.clear();localStorage.removeItem(storageKey);if(backendConfig.environment==='nnooeadfgsvbddrjwyan')localStorage.removeItem('rw-cloud-session-v1');sessionStorage.removeItem('rw-session');token='';saved={}}
 function loginScreen(){clearSession();location.reload()}
 const raw=createClassClient(async (url,{method,headers,body})=>{
- const r=await fetch(url,{method,headers,body:body?JSON.stringify(body):undefined});
+ let r;try{r=await fetch(url,{method,headers,body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(15000)})}catch{throw Error('网络连接超时或中断，请重试。未确认保存的作答会保留。')}
  const t=await r.text();return {status:r.status,data:t?JSON.parse(t):null};
 },()=>token);
 async function api(path,method,body){
@@ -23,8 +27,9 @@ async function loadRoom(){
  [member]=await api('/rest/v1/rw_members?user_id=eq.'+encodeURIComponent(me.id)+'&select=display_name,role,password_changed');
  if(!member)throw Error('此账号尚未加入班级，请联系老师。');
  if(member.role==='student'&&!member.password_changed){el('login').hidden=true;el('welcome').hidden=true;el('change').hidden=false;el('room').hidden=true;el('msg').textContent='';return}
- if(member.role==='teacher'){const {teacher}=await import('./teacher.mjs?v=book-details-20261106');const signout=el('logout');await teacher(api,()=>signout.click(),el('enroll'));return}
- const {student}=await import('./student.mjs?v=book-details-20261106');const signout=el('logout');await student(api,me,member,basic,()=>signout.click());
+ dataClient=createDataClient(api,me.id);
+ if(member.role==='teacher'){const {teacher}=await import('./teacher.mjs?v=performance-20261106');const signout=el('logout');await teacher(dataClient,()=>signout.click(),el('enroll'));return}
+ const {student}=await import('./student.mjs?v=performance-20261106');const signout=el('logout');await student(dataClient,me,member,basic,()=>signout.click());
 }
 el('login').onsubmit=guard(async e=>{token='';const data=Object.fromEntries(new FormData(e.target));data.email=loginIdentity(data.email);const session=await api('/auth/v1/token?grant_type=password','POST',data);remember(session);e.target.reset();await loadRoom()});
 el('publish').onsubmit=guard(async e=>{const f=new FormData(e.target),words=f.get('words').trim().split(/\r?\n/).map(line=>{const [en,zh]=line.trim().split(/\t+/);if(!en||!zh)throw Error('请从表格复制英文和释义两列。');return {en,zh}});await api('/rest/v1/rw_tasks','POST',{title:f.get('title').trim(),words});e.target.reset();await loadRoom();el('msg').textContent='任务已发布'});

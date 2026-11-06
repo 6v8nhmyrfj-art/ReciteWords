@@ -1,4 +1,5 @@
-const url='https://nnooeadfgsvbddrjwyan.supabase.co',key='sb_publishable_NAlh-hkQ2852o8ElBw06ZQ_M-kIQ0pY';
+import {backendConfig} from './backend-config.mjs?v=performance-20261106';
+const url=backendConfig.baseUrl,key=backendConfig.publishableKey;
 export function createClassClient(request, getToken) {
   return async function call(path, method='GET', body) {
     const token=getToken();
@@ -13,3 +14,4 @@ export function loginIdentity(account) {
   const value=account.trim();
   return value.includes('@')?value:value.toLowerCase()+'@students.recitewords.invalid';
 }
+

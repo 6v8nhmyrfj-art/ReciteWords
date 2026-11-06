@@ -48,7 +48,7 @@ export async function assessment({t,api,app,E,button,active,back,prepareChime,fe
  const session=await api('/rest/v1/rpc/rw_begin_mastery','POST',{p_kind:t.kind||(t.id?'task':'basic'),p_source:t.id||null,p_mode:t.category||null});if(!active())return;
  const key='rw-mastery:'+(me?.id||'session')+':'+session.id;let answers=[],busy=false,assisted=false;
  try{const saved=JSON.parse(localStorage.getItem(key));if(Array.isArray(saved)&&saved.length<=session.questions.length&&saved.every(a=>a&&typeof a.value==='string'))answers=saved}catch{}
- const persist=()=>{try{localStorage.setItem(key,JSON.stringify(answers))}catch{}};
+ const persist=()=>{try{localStorage.setItem(key,JSON.stringify(answers));return true}catch{return false}};
  async function finish(){
   if(!active())return;app.replaceChildren(E('h1','正在保存测评…'));
   try{const result=await api('/rest/v1/rpc/rw_finish_mastery','POST',{p_test:session.id,p_responses:answers});if(!active())return;
@@ -68,8 +68,8 @@ export async function assessment({t,api,app,E,button,active,back,prepareChime,fe
   const context=example(q);const play=(text,cls='',lang='en-US')=>button(text,()=>{if(busy)return;if(lang==='en-US'){assisted=true;hint.textContent='本题使用了听音辅助，不计入独立掌握度。'}speak([text],lang)},cls);
   const choose=async(value,b)=>{
    if(busy||!active())return;busy=true;prepareChime();quiet();const ok=norm(value)!==''&&[q.en,...(writing&&Array.isArray(q.alternatives)?q.alternatives:[])].some(v=>norm(v)===norm(value));
-   answers.push({value,assisted});persist();card.querySelectorAll('button,input').forEach(n=>n.disabled=true);feedback(b,ok);hint.textContent=ok?'答对了！':'正确答案：'+q.en+' · '+q.zh;
-   await new Promise(r=>setTimeout(r,ok?650:1400));if(active())draw();
+   answers.push({value,assisted});const stored=persist();card.querySelectorAll('button,input').forEach(n=>n.disabled=true);feedback(b,ok);hint.textContent=(ok?'答对了！':'正确答案：'+q.en+' · '+q.zh)+(stored?'（本机已记录，本次测试结束后保存到云端）':'（暂存于当前页面，完成前请勿关闭）');
+   await new Promise(r=>setTimeout(r,ok?180:600));if(active())draw();
   };
   if(writing){
    card.append(play(q.zh,'word','zh-CN'),E('small',partOfSpeech(q)),E('p',q.test_translation||q.translation||context?.zh||'根据中文意思写出这本词书中的英文。'));

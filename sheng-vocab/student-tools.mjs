@@ -1,4 +1,4 @@
-export {assessment} from './mastery.mjs?v=book-details-20261106';
+
 import {audible,quiet,speak} from './reading-audio.mjs';
 import {contexts,example,choices,norm,partOfSpeech} from './word-context.mjs?v=books-periods-20261106';
 
@@ -71,12 +71,14 @@ export async function profile({app,E,button,row,api,me,member,summary,tasks,due,
  }
  chart('day');records('');
  const done=E('section'),list=E('div');done.append(E('h2','已完成任务'),list);
- list.append(button('查看打卡记录',async()=>{
-  const groups=new Map();let offset=0;
-  while(true){const rows=await api('/rest/v1/rw_progress?select=learned_on,task_id,word_index&user_id=eq.'+who+'&order=learned_on.desc,task_id,word_index&limit=500&offset='+offset);for(const r of rows){const key=r.learned_on+' '+r.task_id;if(!groups.has(key))groups.set(key,new Set());groups.get(key).add(r.word_index)}if(rows.length<500)break;offset+=rows.length}
-  if(!active())return;list.replaceChildren();for(const [key,indices] of groups){const [date,id]=key.split(' '),task=tasks.find(t=>t.id===id);if(task&&task.words.every((_,i)=>indices.has(i)))list.append(E('p',date+'　'+task.title))}
-  if(!list.childNodes.length)list.append(E('p','暂无已完成的班级任务'))
- }));
+ let completedOffset=0;
+ const more=button('查看打卡记录',async()=>{
+  const completed=await api('/rest/v1/rpc/rw_completed_tasks','POST',{p_limit:30,p_offset:completedOffset});if(!active())return;
+  if(!completedOffset)list.replaceChildren();for(const task of completed)list.append(E('p',task.learned_on+'　'+task.title));
+  completedOffset+=completed.length;more.textContent='查看更多';
+  if(completed.length===30)list.append(more);else more.remove();
+  if(!completedOffset)list.append(E('p','暂无已完成的班级任务'));
+ });list.append(more);
  app.append(hero,history,done,row('到期复习',due.length+' 词',review),button('退出登录',()=>{if(confirm('确认退出当前账号？学习记录已保存在云端。'))logout()}))
 }
 

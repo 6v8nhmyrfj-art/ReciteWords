@@ -1,6 +1,6 @@
 export async function shelf({api,app,E,button,row,active,start,basic,due,review}){
  const [catalog,saved]=await Promise.all([
-  api('/rest/v1/rw_libraries?select=id,title,book,words&order=created_at.desc'),
+  api('/rest/v1/rpc/rw_library_catalog','POST',{}),
   api('/rest/v1/rw_bookshelf?select=library&order=added_at.desc')
  ]);
  if(!active())return;
@@ -11,7 +11,7 @@ export async function shelf({api,app,E,button,row,active,start,basic,due,review}
   const books=catalog.filter(b=>chosen.has(b.id));
   if(!books.length)app.append(E('p','从老师制作的词书中选择，添加后就能开始学习。'));
   for(const b of books){
-   const box=E('section');box.append(row(b.book?b.book+' · '+b.title:b.title,b.words.length+' 个学习条目',()=>start(b,'self')),button('移出书架',async()=>{
+   const box=E('section');box.append(row(b.book?b.book+' · '+b.title:b.title,b.word_count+' 个学习条目',async()=>{const book=await api.loadBook('library',b);if(active())return start(book,'self')}),button('移出书架',async()=>{
     if(!confirm('将这本词书移出书架？已保存的学习记录仍可在“我的”查看。'))return;
     await api('/rest/v1/rw_bookshelf?library=eq.'+b.id,'DELETE');chosen.delete(b.id);home()
    },'back'));app.append(box)
@@ -33,8 +33,9 @@ export async function shelf({api,app,E,button,row,active,start,basic,due,review}
     }
     pending.forEach(b=>chosen.add(b.id));home()
    },'primary');add.disabled=!pending.length;
-   box.append(E('h2',title),E('p',units.map(b=>b.title).join(' · ')),E('p',units.reduce((n,b)=>n+b.words.length,0)+' 个条目'),add);app.append(box)
+   box.append(E('h2',title),E('p',units.map(b=>b.title).join(' · ')),E('p',units.reduce((n,b)=>n+b.word_count,0)+' 个条目'),add);app.append(box)
   }
  }
  home()
 }
+

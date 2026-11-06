@@ -1,0 +1,946 @@
+{
+  "tables": [
+    {
+      "rls": true,
+      "name": "rw_mastery_sessions",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "default": "gen_random_uuid()",
+          "not_null": true
+        },
+        {
+          "name": "student",
+          "type": "uuid",
+          "default": null,
+          "not_null": true
+        },
+        {
+          "name": "source_kind",
+          "type": "text",
+          "default": null,
+          "not_null": true
+        },
+        {
+          "name": "source_id",
+          "type": "uuid",
+          "default": null,
+          "not_null": false
+        },
+        {
+          "name": "source_key",
+          "type": "text",
+          "default": null,
+          "not_null": true
+        },
+        {
+          "name": "mode",
+          "type": "text",
+          "default": null,
+          "not_null": true
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "default": null,
+          "not_null": true
+        },
+        {
+          "name": "source_version",
+          "type": "text",
+          "default": null,
+          "not_null": true
+        },
+        {
+          "name": "questions",
+          "type": "jsonb",
+          "default": null,
+          "not_null": true
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "default": "'active'::text",
+          "not_null": true
+        },
+        {
+          "name": "started_at",
+          "type": "timestamp with time zone",
+          "default": "now()",
+          "not_null": true
+        },
+        {
+          "name": "submitted_at",
+          "type": "timestamp with time zone",
+          "default": null,
+          "not_null": false
+        },
+        {
+          "name": "results",
+          "type": "jsonb",
+          "default": null,
+          "not_null": false
+        }
+      ],
+      "constraints": [
+        "CHECK (((status = 'completed'::text) = (submitted_at IS NOT NULL)))",
+        "CHECK ((mode = ANY (ARRAY['reading'::text, 'writing'::text])))",
+        "PRIMARY KEY (id)",
+        "CHECK (((jsonb_typeof(questions) = 'array'::text) AND ((jsonb_array_length(questions) >= 1) AND (jsonb_array_length(questions) <= 20))))",
+        "CHECK ((source_kind = ANY (ARRAY['library'::text, 'task'::text, 'basic'::text])))",
+        "CHECK ((status = ANY (ARRAY['active'::text, 'completed'::text, 'abandoned'::text])))",
+        "FOREIGN KEY (student) REFERENCES auth.users(id) ON DELETE CASCADE"
+      ]
+    },
+    {
+      "rls": true,
+      "name": "rw_members",
+      "columns": [
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "default": null,
+          "not_null": true
+        },
+        {
+          "name": "display_name",
+          "type": "text",
+          "default": null,
+          "not_null": true
+        },
+        {
+          "name": "role",
+          "type": "text",
+          "default": null,
+          "not_null": true
+        },
+        {
+          "name": "password_changed",
+          "type": "boolean",
+          "default": "false",
+          "not_null": true
+        },
+        {
+          "name": "cohort",
+          "type": "text",
+          "default": null,
+          "not_null": false
+        }
+      ],
+      "constraints": [
+        "PRIMARY KEY (user_id)",
+        "CHECK ((role = ANY (ARRAY['teacher'::text, 'student'::text])))",
+        "FOREIGN KEY (user_id) REFERENCES auth.users(id)"
+      ]
+    },
+    {
+      "rls": true,
+      "name": "rw_tasks",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "default": "gen_random_uuid()",
+          "not_null": true
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "default": null,
+          "not_null": true
+        },
+        {
+          "name": "words",
+          "type": "jsonb",
+          "default": null,
+          "not_null": true
+        },
+        {
+          "name": "pass_percent",
+          "type": "integer",
+          "default": "90",
+          "not_null": true
+        },
+        {
+          "name": "deadline",
+          "type": "date",
+          "default": null,
+          "not_null": false
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "default": "now()",
+          "not_null": true
+        },
+        {
+          "name": "cohort",
+          "type": "text",
+          "default": null,
+          "not_null": false
+        },
+        {
+          "name": "category",
+          "type": "text",
+          "default": "'reading'::text",
+          "not_null": true
+        }
+      ],
+      "constraints": [
+        "CHECK ((category = ANY (ARRAY['reading'::text, 'writing'::text])))",
+        "CHECK (((pass_percent >= 1) AND (pass_percent <= 100)))",
+        "PRIMARY KEY (id)",
+        "CHECK ((jsonb_typeof(words) = 'array'::text))"
+      ]
+    },
+    {
+      "rls": true,
+      "name": "rw_progress",
+      "columns": [
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "default": null,
+          "not_null": true
+        },
+        {
+          "name": "task_id",
+          "type": "uuid",
+          "default": null,
+          "not_null": true
+        },
+        {
+          "name": "word_index",
+          "type": "integer",
+          "default": null,
+          "not_null": true
+        },
+        {
+          "name": "learned_on",
+          "type": "date",
+          "default": "((now() AT TIME ZONE 'Asia/Shanghai'::text))::date",
+          "not_null": true
+        }
+      ],
+      "constraints": [
+        "PRIMARY KEY (user_id, task_id, learned_on, word_index)",
+        "FOREIGN KEY (task_id) REFERENCES rw_tasks(id)",
+        "FOREIGN KEY (user_id) REFERENCES rw_members(user_id)",
+        "CHECK ((word_index >= 0))"
+      ]
+    },
+    {
+      "rls": true,
+      "name": "rw_libraries",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "default": "gen_random_uuid()",
+          "not_null": true
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "default": null,
+          "not_null": true
+        },
+        {
+          "name": "book",
+          "type": "text",
+          "default": "''::text",
+          "not_null": true
+        },
+        {
+          "name": "words",
+          "type": "jsonb",
+          "default": null,
+          "not_null": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "default": "now()",
+          "not_null": false
+        },
+        {
+          "name": "category",
+          "type": "text",
+          "default": "'reading'::text",
+          "not_null": true
+        }
+      ],
+      "constraints": [
+        "CHECK ((category = ANY (ARRAY['reading'::text, 'writing'::text])))",
+        "PRIMARY KEY (id)",
+        "CHECK (((length(TRIM(BOTH FROM title)) >= 1) AND (length(TRIM(BOTH FROM title)) <= 100)))",
+        "CHECK (((jsonb_typeof(words) = 'array'::text) AND ((jsonb_array_length(words) >= 1) AND (jsonb_array_length(words) <= 2000))))"
+      ]
+    },
+    {
+      "rls": true,
+      "name": "rw_answers",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "default": null,
+          "not_null": true
+        },
+        {
+          "name": "student",
+          "type": "uuid",
+          "default": null,
+          "not_null": true
+        },
+        {
+          "name": "word",
+          "type": "text",
+          "default": null,
+          "not_null": true
+        },
+        {
+          "name": "correct",
+          "type": "boolean",
+          "default": null,
+          "not_null": true
+        },
+        {
+          "name": "at",
+          "type": "timestamp with time zone",
+          "default": "now()",
+          "not_null": true
+        }
+      ],
+      "constraints": [
+        "PRIMARY KEY (id)",
+        "FOREIGN KEY (student) REFERENCES rw_members(user_id)"
+      ]
+    },
+    {
+      "rls": true,
+      "name": "rw_review_cards",
+      "columns": [
+        {
+          "name": "student",
+          "type": "uuid",
+          "default": null,
+          "not_null": true
+        },
+        {
+          "name": "word",
+          "type": "text",
+          "default": null,
+          "not_null": true
+        },
+        {
+          "name": "meaning",
+          "type": "text",
+          "default": null,
+          "not_null": true
+        },
+        {
+          "name": "stage",
+          "type": "smallint",
+          "default": null,
+          "not_null": true
+        },
+        {
+          "name": "due_at",
+          "type": "timestamp with time zone",
+          "default": null,
+          "not_null": true
+        }
+      ],
+      "constraints": [
+        "PRIMARY KEY (student, word)",
+        "FOREIGN KEY (student) REFERENCES rw_members(user_id)"
+      ]
+    },
+    {
+      "rls": true,
+      "name": "rw_book_tests",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "default": null,
+          "not_null": true
+        },
+        {
+          "name": "student",
+          "type": "uuid",
+          "default": "auth.uid()",
+          "not_null": true
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "default": null,
+          "not_null": true
+        },
+        {
+          "name": "at",
+          "type": "timestamp with time zone",
+          "default": "now()",
+          "not_null": true
+        },
+        {
+          "name": "answers",
+          "type": "jsonb",
+          "default": null,
+          "not_null": true
+        },
+        {
+          "name": "sentence",
+          "type": "jsonb",
+          "default": null,
+          "not_null": true
+        }
+      ],
+      "constraints": [
+        "CHECK (((jsonb_typeof(answers) = 'array'::text) AND ((jsonb_array_length(answers) >= 1) AND (jsonb_array_length(answers) <= 20)) AND (octet_length((answers)::text) < 60000)))",
+        "PRIMARY KEY (id)",
+        "CHECK (((jsonb_typeof(sentence) = 'object'::text) AND (octet_length((sentence)::text) < 12000)))",
+        "FOREIGN KEY (student) REFERENCES auth.users(id) ON DELETE CASCADE",
+        "CHECK (((length(title) >= 1) AND (length(title) <= 200)))"
+      ]
+    },
+    {
+      "rls": true,
+      "name": "rw_known_checks",
+      "columns": [
+        {
+          "name": "student",
+          "type": "uuid",
+          "default": null,
+          "not_null": true
+        },
+        {
+          "name": "word",
+          "type": "text",
+          "default": null,
+          "not_null": true
+        },
+        {
+          "name": "meaning",
+          "type": "text",
+          "default": null,
+          "not_null": true
+        },
+        {
+          "name": "due_at",
+          "type": "timestamp with time zone",
+          "default": null,
+          "not_null": true
+        },
+        {
+          "name": "state",
+          "type": "text",
+          "default": null,
+          "not_null": true
+        }
+      ],
+      "constraints": [
+        "PRIMARY KEY (student, word)",
+        "CHECK ((state = ANY (ARRAY['pending'::text, 'relearn'::text, 'verified'::text])))",
+        "FOREIGN KEY (student) REFERENCES auth.users(id) ON DELETE CASCADE"
+      ]
+    },
+    {
+      "rls": true,
+      "name": "rw_group_tests",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "default": null,
+          "not_null": true
+        },
+        {
+          "name": "student",
+          "type": "uuid",
+          "default": null,
+          "not_null": true
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "default": null,
+          "not_null": true
+        },
+        {
+          "name": "at",
+          "type": "timestamp with time zone",
+          "default": "now()",
+          "not_null": true
+        },
+        {
+          "name": "answers",
+          "type": "jsonb",
+          "default": null,
+          "not_null": true
+        },
+        {
+          "name": "correct",
+          "type": "integer",
+          "default": null,
+          "not_null": true
+        }
+      ],
+      "constraints": [
+        "CHECK (((correct >= 0) AND (correct <= 10)))",
+        "PRIMARY KEY (id)",
+        "FOREIGN KEY (student) REFERENCES auth.users(id) ON DELETE CASCADE"
+      ]
+    },
+    {
+      "rls": true,
+      "name": "rw_bookshelf",
+      "columns": [
+        {
+          "name": "student",
+          "type": "uuid",
+          "default": "auth.uid()",
+          "not_null": true
+        },
+        {
+          "name": "library",
+          "type": "uuid",
+          "default": null,
+          "not_null": true
+        },
+        {
+          "name": "added_at",
+          "type": "timestamp with time zone",
+          "default": "now()",
+          "not_null": true
+        }
+      ],
+      "constraints": [
+        "FOREIGN KEY (library) REFERENCES rw_libraries(id) ON DELETE CASCADE",
+        "PRIMARY KEY (student, library)",
+        "FOREIGN KEY (student) REFERENCES auth.users(id) ON DELETE CASCADE"
+      ]
+    }
+  ],
+  "indexes": [
+    {
+      "indexdef": "CREATE UNIQUE INDEX rw_mastery_sessions_pkey ON public.rw_mastery_sessions USING btree (id)",
+      "indexname": "rw_mastery_sessions_pkey",
+      "tablename": "rw_mastery_sessions",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX rw_one_active_mastery ON public.rw_mastery_sessions USING btree (student, source_key, mode) WHERE (status = 'active'::text)",
+      "indexname": "rw_one_active_mastery",
+      "tablename": "rw_mastery_sessions",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX rw_mastery_history ON public.rw_mastery_sessions USING btree (student, source_key, mode, submitted_at DESC) WHERE (status = 'completed'::text)",
+      "indexname": "rw_mastery_history",
+      "tablename": "rw_mastery_sessions",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX rw_progress_pkey ON public.rw_progress USING btree (user_id, task_id, learned_on, word_index)",
+      "indexname": "rw_progress_pkey",
+      "tablename": "rw_progress",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX rw_members_pkey ON public.rw_members USING btree (user_id)",
+      "indexname": "rw_members_pkey",
+      "tablename": "rw_members",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX rw_tasks_pkey ON public.rw_tasks USING btree (id)",
+      "indexname": "rw_tasks_pkey",
+      "tablename": "rw_tasks",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX rw_answers_pkey ON public.rw_answers USING btree (id)",
+      "indexname": "rw_answers_pkey",
+      "tablename": "rw_answers",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX rw_libraries_pkey ON public.rw_libraries USING btree (id)",
+      "indexname": "rw_libraries_pkey",
+      "tablename": "rw_libraries",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX rw_review_cards_pkey ON public.rw_review_cards USING btree (student, word)",
+      "indexname": "rw_review_cards_pkey",
+      "tablename": "rw_review_cards",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX rw_review_due ON public.rw_review_cards USING btree (student, due_at)",
+      "indexname": "rw_review_due",
+      "tablename": "rw_review_cards",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX rw_book_tests_pkey ON public.rw_book_tests USING btree (id)",
+      "indexname": "rw_book_tests_pkey",
+      "tablename": "rw_book_tests",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX rw_book_tests_student_at ON public.rw_book_tests USING btree (student, at DESC)",
+      "indexname": "rw_book_tests_student_at",
+      "tablename": "rw_book_tests",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX rw_known_checks_pkey ON public.rw_known_checks USING btree (student, word)",
+      "indexname": "rw_known_checks_pkey",
+      "tablename": "rw_known_checks",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX rw_group_tests_pkey ON public.rw_group_tests USING btree (id)",
+      "indexname": "rw_group_tests_pkey",
+      "tablename": "rw_group_tests",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX rw_group_tests_student_at ON public.rw_group_tests USING btree (student, at DESC)",
+      "indexname": "rw_group_tests_student_at",
+      "tablename": "rw_group_tests",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX rw_bookshelf_pkey ON public.rw_bookshelf USING btree (student, library)",
+      "indexname": "rw_bookshelf_pkey",
+      "tablename": "rw_bookshelf",
+      "schemaname": "public",
+      "tablespace": null
+    }
+  ],
+  "policies": [
+    {
+      "cmd": "SELECT",
+      "qual": "(user_id = ( SELECT auth.uid() AS uid))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "rw_members",
+      "permissive": "PERMISSIVE",
+      "policyname": "own_membership",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "rw_tasks",
+      "permissive": "PERMISSIVE",
+      "policyname": "teacher_publishes",
+      "schemaname": "public",
+      "with_check": "(EXISTS ( SELECT 1\n   FROM rw_members\n  WHERE (rw_members.role = 'teacher'::text)))"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "((user_id = ( SELECT auth.uid() AS uid)) OR (EXISTS ( SELECT 1\n   FROM rw_members\n  WHERE (rw_members.role = 'teacher'::text))))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "rw_progress",
+      "permissive": "PERMISSIVE",
+      "policyname": "read_progress",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "ALL",
+      "qual": "(EXISTS ( SELECT\n   FROM rw_members\n  WHERE ((rw_members.user_id = auth.uid()) AND (rw_members.role = 'teacher'::text))))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "rw_libraries",
+      "permissive": "PERMISSIVE",
+      "policyname": "teacher_libraries",
+      "schemaname": "public",
+      "with_check": "(EXISTS ( SELECT\n   FROM rw_members\n  WHERE ((rw_members.user_id = auth.uid()) AND (rw_members.role = 'teacher'::text))))"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "((student = auth.uid()) AND (EXISTS ( SELECT\n   FROM rw_members\n  WHERE ((rw_members.user_id = auth.uid()) AND (rw_members.role = 'student'::text) AND rw_members.password_changed))))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "rw_review_cards",
+      "permissive": "PERMISSIVE",
+      "policyname": "own_reviews",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "(student = ( SELECT auth.uid() AS uid))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "rw_book_tests",
+      "permissive": "PERMISSIVE",
+      "policyname": "read_own",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "rw_book_tests",
+      "permissive": "PERMISSIVE",
+      "policyname": "save_own",
+      "schemaname": "public",
+      "with_check": "((student = ( SELECT auth.uid() AS uid)) AND (EXISTS ( SELECT 1\n   FROM rw_members\n  WHERE ((rw_members.user_id = ( SELECT auth.uid() AS uid)) AND (rw_members.role = 'student'::text) AND rw_members.password_changed))))"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "(student = ( SELECT auth.uid() AS uid))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "rw_answers",
+      "permissive": "PERMISSIVE",
+      "policyname": "student_answer_history",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "(student = ( SELECT auth.uid() AS uid))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "rw_known_checks",
+      "permissive": "PERMISSIVE",
+      "policyname": "read_my_checks",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "(student = ( SELECT auth.uid() AS uid))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "rw_group_tests",
+      "permissive": "PERMISSIVE",
+      "policyname": "own_group_tests",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "(EXISTS ( SELECT 1\n   FROM rw_members\n  WHERE ((rw_members.user_id = ( SELECT auth.uid() AS uid)) AND (rw_members.role = 'student'::text) AND rw_members.password_changed)))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "rw_libraries",
+      "permissive": "PERMISSIVE",
+      "policyname": "student_catalog",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "(student = ( SELECT auth.uid() AS uid))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "rw_bookshelf",
+      "permissive": "PERMISSIVE",
+      "policyname": "own_shelf_read",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "rw_bookshelf",
+      "permissive": "PERMISSIVE",
+      "policyname": "own_shelf_add",
+      "schemaname": "public",
+      "with_check": "((student = ( SELECT auth.uid() AS uid)) AND (EXISTS ( SELECT 1\n   FROM rw_members\n  WHERE ((rw_members.user_id = ( SELECT auth.uid() AS uid)) AND (rw_members.role = 'student'::text) AND rw_members.password_changed))))"
+    },
+    {
+      "cmd": "DELETE",
+      "qual": "(student = ( SELECT auth.uid() AS uid))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "rw_bookshelf",
+      "permissive": "PERMISSIVE",
+      "policyname": "own_shelf_remove",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "(student = ( SELECT auth.uid() AS uid))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "rw_mastery_sessions",
+      "permissive": "PERMISSIVE",
+      "policyname": "own_mastery_sessions",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "(EXISTS ( SELECT 1\n   FROM rw_members m\n  WHERE ((m.user_id = ( SELECT auth.uid() AS uid)) AND ((m.role = 'teacher'::text) OR ((m.role = 'student'::text) AND m.password_changed AND ((rw_tasks.cohort IS NULL) OR (m.cohort = rw_tasks.cohort)))))))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "rw_tasks",
+      "permissive": "PERMISSIVE",
+      "policyname": "task_audience",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "(EXISTS ( SELECT 1\n   FROM rw_members m\n  WHERE ((m.user_id = ( SELECT auth.uid() AS uid)) AND (m.role = 'teacher'::text))))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "rw_tasks",
+      "permissive": "PERMISSIVE",
+      "policyname": "teacher_updates_tasks",
+      "schemaname": "public",
+      "with_check": "(EXISTS ( SELECT 1\n   FROM rw_members m\n  WHERE ((m.user_id = ( SELECT auth.uid() AS uid)) AND (m.role = 'teacher'::text))))"
+    }
+  ],
+  "functions": [
+    {
+      "name": "rw_password_changed",
+      "definition": "CREATE OR REPLACE FUNCTION public.rw_password_changed()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\nbegin\n if old.encrypted_password is distinct from new.encrypted_password and coalesce(old.encrypted_password,'')<>'' then\n update public.rw_members set password_changed=true where user_id=new.id and role='student';\n end if;\n return new;\nend $function$\n"
+    },
+    {
+      "name": "rw_today",
+      "definition": "CREATE OR REPLACE FUNCTION public.rw_today(p_task uuid)\n RETURNS TABLE(student_id uuid, student_name text, learned bigint)\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO ''\nAS $function$\nselect m.user_id,m.display_name,count(p.word_index)\nfrom public.rw_members m left join public.rw_progress p on p.user_id=m.user_id and p.task_id=p_task and p.learned_on=(now() at time zone 'Asia/Shanghai')::date\nwhere m.role='student' and exists(select 1 from public.rw_members teacher where teacher.user_id=auth.uid() and teacher.role='teacher')\ngroup by m.user_id,m.display_name order by m.display_name,m.user_id\n$function$\n"
+    },
+    {
+      "name": "rw_enroll_created_student",
+      "definition": "CREATE OR REPLACE FUNCTION public.rw_enroll_created_student()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$ begin\nif new.raw_app_meta_data ? 'rw_student_name' then\ninsert into public.rw_members(user_id,role,display_name) values(new.id,'student',left(new.raw_app_meta_data->>'rw_student_name',30)) on conflict (user_id) do nothing;\nend if; return new; end $function$\n"
+    },
+    {
+      "name": "rw_dashboard",
+      "definition": "CREATE OR REPLACE FUNCTION public.rw_dashboard()\n RETURNS jsonb\n LANGUAGE plpgsql\n STABLE SECURITY DEFINER\n SET search_path TO ''\nAS $function$ begin\nif not exists(select from public.rw_members where user_id=auth.uid() and role='teacher') then raise exception 'teacher required';end if;\nreturn jsonb_build_object('members',(select coalesce(jsonb_agg(to_jsonb(s)),'[]') from(select user_id,display_name,cohort from public.rw_members where role='student')s),'learned',(select coalesce(jsonb_agg(to_jsonb(s)),'[]') from(select p.user_id,lower(trim(t.words->p.word_index->>'en')) word,max(p.learned_on) last_day from public.rw_progress p join public.rw_tasks t on t.id=p.task_id group by 1,2)s),'checked',(select coalesce(jsonb_agg(distinct s.user_id),'[]') from(select p.user_id from public.rw_progress p join public.rw_tasks t on t.id=p.task_id where p.learned_on=(now() at time zone 'Asia/Shanghai')::date group by p.user_id,t.id,t.words having count(*)>=jsonb_array_length(t.words))s),'answers',(select coalesce(jsonb_agg(to_jsonb(s)),'[]') from(select student,word,count(*) n,count(*) filter(where correct) hits from public.rw_answers where at>=date_trunc('week',now() at time zone 'Asia/Shanghai') at time zone 'Asia/Shanghai' group by 1,2)s));end$function$\n"
+    },
+    {
+      "name": "rw_answer",
+      "definition": "CREATE OR REPLACE FUNCTION public.rw_answer(p_id uuid, p_task uuid, p_index integer, p_answer text)\n RETURNS boolean\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$ declare target text; ok boolean;begin\nselect t.words->p_index->>'en' into target from public.rw_tasks t join public.rw_members m on m.user_id=auth.uid() where t.id=p_task and m.role='student' and m.password_changed and (t.cohort is null or t.cohort=m.cohort) and p_index>=0;\nif p_task is null and p_index>=0 and exists(select from public.rw_members where user_id=auth.uid() and role='student' and password_changed) then target=('[\"discover\",\"balloon\",\"wheel\",\"central\",\"although\",\"attach\",\"pull\",\"international\",\"path\",\"technique\",\"depend\",\"describe\",\"decide\",\"develop\",\"practice\",\"improve\",\"knowledge\",\"journey\",\"prepare\",\"remember\"]'::jsonb)->>p_index;end if;\nif target is null then raise exception 'invalid task'; end if;\nok=lower(trim(target))=lower(trim(p_answer));insert into public.rw_answers values(p_id,auth.uid(),lower(trim(target)),ok,now()) on conflict do nothing;return ok;end$function$\n"
+    },
+    {
+      "name": "rw_move_student",
+      "definition": "CREATE OR REPLACE FUNCTION public.rw_move_student(p_student uuid, p_cohort text)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$begin\nif not exists(select from public.rw_members where user_id=auth.uid() and role='teacher') or p_cohort not in ('七年级','八年级第一班','八年级第二班','九年级强化班') or p_cohort is null then raise exception 'invalid assignment';end if;\nupdate public.rw_members set cohort=p_cohort where user_id=p_student and role='student';end$function$\n"
+    },
+    {
+      "name": "rw_reset_student_password",
+      "definition": "CREATE OR REPLACE FUNCTION public.rw_reset_student_password(p_student uuid, p_password text)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\nbegin\n if not exists(select 1 from public.rw_members where user_id=auth.uid() and role='teacher') then raise exception 'teacher required' using errcode='42501'; end if;\n if p_password is null or char_length(p_password)<8 or octet_length(p_password)>72 or trim(p_password)='' then raise exception 'invalid temporary password'; end if;\n perform 1 from public.rw_members where user_id=p_student and role='student' for update;\n if not found then raise exception 'student required'; end if;\n update auth.users set encrypted_password=extensions.crypt(p_password,extensions.gen_salt('bf',10)),updated_at=now() where id=p_student;\n update public.rw_members set password_changed=false where user_id=p_student;\n delete from auth.sessions where user_id=p_student;\nend $function$\n"
+    },
+    {
+      "name": "rw_student_summary",
+      "definition": "CREATE OR REPLACE FUNCTION public.rw_student_summary()\n RETURNS jsonb\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO ''\nAS $function$\nwith member as (select * from public.rw_members where user_id=auth.uid() and role='student' and password_changed),\ndays as(select p.learned_on,p.task_id,count(*) n,jsonb_array_length(t.words) total from public.rw_progress p join member m on m.user_id=p.user_id join public.rw_tasks t on t.id=p.task_id where p.learned_on>=date_trunc('week',now() at time zone 'Asia/Shanghai')::date group by 1,2,t.words),\nanswers as(select a.correct from public.rw_answers a join member m on m.user_id=a.student where a.at>=date_trunc('week',now() at time zone 'Asia/Shanghai') at time zone 'Asia/Shanghai')\nselect jsonb_build_object('today',(select count(distinct lower(trim(t.words->p.word_index->>'en'))) from public.rw_progress p join member m on m.user_id=p.user_id join public.rw_tasks t on t.id=p.task_id where p.learned_on=(now() at time zone 'Asia/Shanghai')::date),'days',(select count(distinct learned_on) from days where n>=total),'accuracy',(select round(avg(correct::int)*100) from answers),'cohort',(select cohort from member))\n$function$\n"
+    },
+    {
+      "name": "rw_mark_word",
+      "definition": "CREATE OR REPLACE FUNCTION public.rw_mark_word(p_task uuid, p_index integer)\n RETURNS date\n LANGUAGE plpgsql\n SET search_path TO ''\nAS $function$declare d date:=(now() at time zone 'Asia/Shanghai')::date;begin\ninsert into public.rw_progress(user_id,task_id,word_index) values(auth.uid(),p_task,p_index) on conflict do nothing;return d;end$function$\n"
+    },
+    {
+      "name": "rw_vocabulary_trend",
+      "definition": "CREATE OR REPLACE FUNCTION public.rw_vocabulary_trend()\n RETURNS TABLE(day date, total bigint)\n LANGUAGE sql\n STABLE\n SET search_path TO ''\nAS $function$\n with first_correct as (select word,min((at at time zone 'Asia/Shanghai')::date) as first_day from public.rw_answers where student=auth.uid() and correct group by word),\n days as (select (now() at time zone 'Asia/Shanghai')::date-i as d from generate_series(0,29) i)\n select d,count(word) from days left join first_correct on first_day<=d group by d order by d\n$function$\n"
+    },
+    {
+      "name": "rw_practice",
+      "definition": "CREATE OR REPLACE FUNCTION public.rw_practice(p_id uuid, p_mode text, p_task uuid, p_index integer, p_word text, p_choice text)\n RETURNS boolean\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\ndeclare uid uuid:=auth.uid(); grp text; w jsonb; k text; oldstage int; due timestamptz; st int; ok boolean; days int[]:=array[1,2,4,7,15,30]; prior boolean;\nbegin\nselect cohort into grp from public.rw_members where user_id=uid and role='student' and password_changed;\nif not found or p_mode not in ('task','self','quiz','review') or p_mode is null then raise exception 'invalid access';end if;\nperform pg_advisory_xact_lock(hashtextextended(uid::text,0));\nselect correct into prior from public.rw_answers where id=p_id and student=uid;if found then return prior;end if;\nif p_mode='review' then select jsonb_build_object('en',word,'zh',meaning) into w from public.rw_review_cards where student=uid and word=p_word;\nelsif p_index>=0 and p_task is not null then select words->p_index into w from public.rw_tasks where id=p_task and (cohort is null or cohort=grp);\nif w is null and p_mode in ('self','quiz') then select words->p_index into w from public.rw_libraries where id=p_task;end if;\nelsif p_index>=0 and p_mode<>'task' then w='[{\"en\":\"discover\",\"zh\":\"发现；发觉\"},{\"en\":\"balloon\",\"zh\":\"气球\"},{\"en\":\"wheel\",\"zh\":\"轮子\"},{\"en\":\"central\",\"zh\":\"中心的\"},{\"en\":\"although\",\"zh\":\"虽然；尽管\"},{\"en\":\"attach\",\"zh\":\"系上；连接\"},{\"en\":\"pull\",\"zh\":\"拉；拖\"},{\"en\":\"international\",\"zh\":\"国际的\"},{\"en\":\"path\",\"zh\":\"小路；路径\"},{\"en\":\"technique\",\"zh\":\"技术；技巧\"},{\"en\":\"depend\",\"zh\":\"依靠；取决于\"},{\"en\":\"describe\",\"zh\":\"描述\"},{\"en\":\"decide\",\"zh\":\"决定\"},{\"en\":\"develop\",\"zh\":\"发展；培养\"},{\"en\":\"practice\",\"zh\":\"练习\"},{\"en\":\"improve\",\"zh\":\"提高；改善\"},{\"en\":\"knowledge\",\"zh\":\"知识\"},{\"en\":\"journey\",\"zh\":\"旅程\"},{\"en\":\"prepare\",\"zh\":\"准备\"},{\"en\":\"remember\",\"zh\":\"记住\"}]'::jsonb->p_index;end if;\nk=lower(trim(w->>'en'));if k is null or p_choice is null then raise exception 'invalid word';end if;\nok=k=lower(trim(p_choice));\ninsert into public.rw_answers(id,student,word,correct) values(p_id,uid,k,ok);\nselect stage,due_at into oldstage,due from public.rw_review_cards where student=uid and word=k;\nif not ok or due is null or due<=now() then\nst=case when ok then least(6,coalesce(oldstage,0)+1) else 0 end;\ninsert into public.rw_review_cards values(uid,k,w->>'zh',st,case when ok then now()+make_interval(days=>days[st]) else now()+interval '10 minutes' end)\non conflict(student,word) do update set stage=excluded.stage,due_at=excluded.due_at,meaning=excluded.meaning;\nend if;\n\nreturn ok;end$function$\n"
+    },
+    {
+      "name": "rw_begin_mastery",
+      "definition": "CREATE OR REPLACE FUNCTION public.rw_begin_mastery(p_kind text, p_source uuid, p_mode text DEFAULT NULL::text, p_restart boolean DEFAULT false)\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\ndeclare uid uuid:=auth.uid(); b jsonb; pool jsonb; mode_value text; version text; session public.rw_mastery_sessions;\n questions jsonb:='[]'; candidates jsonb; options jsonb; q jsonb; w jsonb; item record;\nbegin\n b:=rw_private.mastery_source(p_kind,p_source);\n mode_value:=coalesce(p_mode,b->>'category');\n if mode_value not in ('reading','writing') then raise exception 'invalid_mode';end if;\n pool:=b->'words';version:=md5(pool::text);\n if jsonb_array_length(pool)=0 then raise exception 'empty_book';end if;\n perform pg_advisory_xact_lock(hashtextextended(uid::text,0));\n select * into session from public.rw_mastery_sessions\n where student=uid and source_key=b->>'source_key' and mode=mode_value and status='active' for update;\n if found and not p_restart and session.source_version=version then return to_jsonb(session)-'student';end if;\n if session.id is not null then update public.rw_mastery_sessions set status='abandoned' where id=session.id;end if;\n -- Round-robin random sampling across teacher-labelled difficulty bands.\n for item in\n  with ranked as (\n   select value w,row_number() over(partition by value->>'difficulty' order by random()) band_rank,random() tie\n   from jsonb_array_elements(pool)\n  ), sample as (\n   select * from ranked order by band_rank,tie limit least(20,jsonb_array_length(pool))\n  )\n  select sample.w from sample order by (sample.w->>'difficulty')::int,\n    length(regexp_replace(sample.w->>'en','[^A-Za-z]','','g')),tie\n loop\n  w:=item.w;options:='[]';\n  if mode_value='reading' then\n   candidates:=pool||'[{\"en\":\"discover\",\"zh\":\"发现；发觉\",\"pos\":\"v.\",\"example\":\"We hope to discover a new star.\",\"translation\":\"我们希望发现一颗新星。\"},{\"en\":\"balloon\",\"zh\":\"气球\",\"pos\":\"n.\",\"example\":\"The red balloon flew away.\",\"translation\":\"那个红气球飞走了。\"},{\"en\":\"wheel\",\"zh\":\"轮子\",\"pos\":\"n.\",\"example\":\"My bike has a broken wheel.\",\"translation\":\"我的自行车有一个轮子坏了。\"},{\"en\":\"central\",\"zh\":\"中心的\",\"pos\":\"adj.\",\"example\":\"Meet me at the central station.\",\"translation\":\"在中心车站和我见面吧。\"},{\"en\":\"although\",\"zh\":\"虽然；尽管\",\"pos\":\"conj.\",\"example\":\"Although it was cold, we went outside.\",\"translation\":\"虽然天气很冷，我们还是出门了。\"},{\"en\":\"attach\",\"zh\":\"系上；连接\",\"pos\":\"v.\",\"example\":\"Please attach a photo to your email.\",\"translation\":\"请在邮件中附上一张照片。\"},{\"en\":\"pull\",\"zh\":\"拉；拖\",\"pos\":\"v.\",\"example\":\"Please pull the door open.\",\"translation\":\"请把门拉开。\"},{\"en\":\"international\",\"zh\":\"国际的\",\"pos\":\"adj.\",\"example\":\"She studies at an international school.\",\"translation\":\"她在一所国际学校学习。\"},{\"en\":\"path\",\"zh\":\"小路；路径\",\"pos\":\"n.\",\"example\":\"Follow the path to the lake.\",\"translation\":\"沿着小路走到湖边。\"},{\"en\":\"technique\",\"zh\":\"技术；技巧\",\"pos\":\"n.\",\"example\":\"Our coach taught us a new swimming technique.\",\"translation\":\"教练教了我们一种新的游泳技巧。\"},{\"en\":\"depend\",\"zh\":\"依靠；取决于\",\"pos\":\"v.\",\"example\":\"Young birds depend on their parents.\",\"translation\":\"幼鸟依靠父母生活。\"},{\"en\":\"describe\",\"zh\":\"描述\",\"pos\":\"v.\",\"example\":\"Can you describe your room?\",\"translation\":\"你能描述一下你的房间吗？\"},{\"en\":\"decide\",\"zh\":\"决定\",\"pos\":\"v.\",\"example\":\"We must decide where to go.\",\"translation\":\"我们必须决定去哪里。\"},{\"en\":\"develop\",\"zh\":\"发展；培养\",\"pos\":\"v.\",\"example\":\"We can develop good habits at school.\",\"translation\":\"我们可以在学校培养好习惯。\"},{\"en\":\"practice\",\"zh\":\"练习\",\"pos\":\"v.\",\"example\":\"We practice English after school.\",\"translation\":\"我们放学后练习英语。\"},{\"en\":\"improve\",\"zh\":\"提高；改善\",\"pos\":\"v.\",\"example\":\"Reading helps me improve my English.\",\"translation\":\"阅读帮助我提高英语水平。\"},{\"en\":\"knowledge\",\"zh\":\"知识\",\"pos\":\"n.\",\"example\":\"Books give us knowledge.\",\"translation\":\"书籍给我们知识。\"},{\"en\":\"journey\",\"zh\":\"旅程\",\"pos\":\"n.\",\"example\":\"Our journey began on Monday.\",\"translation\":\"我们的旅程从星期一开始。\"},{\"en\":\"prepare\",\"zh\":\"准备\",\"pos\":\"v.\",\"example\":\"Let''s prepare lunch together.\",\"translation\":\"我们一起准备午餐吧。\"},{\"en\":\"remember\",\"zh\":\"记住\",\"pos\":\"v.\",\"example\":\"I remember your name.\",\"translation\":\"我记得你的名字。\"}]'::jsonb;\n   with distinct_choices as (\n    select distinct on(rw_private.mastery_norm(v->>'zh')) v,random() shuffle\n    from jsonb_array_elements(candidates) v\n    where rw_private.mastery_norm(v->>'en')<>rw_private.mastery_norm(w->>'en')\n      and nullif(btrim(v->>'zh'),'') is not null\n      and not(regexp_split_to_array(rw_private.mastery_norm(v->>'zh'),'[;；、]') &&\n              regexp_split_to_array(rw_private.mastery_norm(w->>'zh'),'[;；、]'))\n    order by rw_private.mastery_norm(v->>'zh'),random()\n   ), distractors as (\n    select jsonb_build_object('en',v->>'en','zh',v->>'zh') v from distinct_choices\n    order by case when v->>'pos'=w->>'pos' then 0 else 1 end,shuffle limit 3\n   ), all_options as (\n    select v from distractors union all select jsonb_build_object('en',w->>'en','zh',w->>'zh')\n   )\n   select jsonb_agg(v order by random()) into options from all_options;\n   if jsonb_array_length(options)<>4 then raise exception 'not_enough_distinct_options';end if;\n  end if;\n  q:=w||jsonb_build_object('options',options);\n  questions:=questions||jsonb_build_array(q);\n end loop;\n insert into public.rw_mastery_sessions(student,source_kind,source_id,source_key,mode,title,source_version,questions)\n values(uid,p_kind,p_source,b->>'source_key',mode_value,b->>'title',version,questions) returning * into session;\n return to_jsonb(session)-'student';\nend $function$\n"
+    },
+    {
+      "name": "rw_check_familiar",
+      "definition": "CREATE OR REPLACE FUNCTION public.rw_check_familiar(p_id uuid, p_word text, p_choice text)\n RETURNS boolean\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\ndeclare uid uuid:=auth.uid(); c public.rw_known_checks;ok boolean;\nbegin\n if not exists(select 1 from public.rw_members where user_id=uid and role='student' and password_changed) then raise exception 'student required';end if;\n perform pg_advisory_xact_lock(hashtextextended(uid::text,0));\n select correct into ok from public.rw_answers where student=uid and id=p_id;if found then return ok;end if;\n select * into c from public.rw_known_checks where student=uid and word=p_word and due_at<=now() and state<>'relearn';\n if not found then raise exception 'check no longer due';end if;\n ok:=coalesce(c.word=lower(trim(p_choice)),false);\n insert into public.rw_answers(id,student,word,correct) values(p_id,uid,c.word,ok);\n update public.rw_known_checks set state=case when ok then 'verified' else 'relearn' end,\n due_at=case when ok then now()+ interval '7 days'+ random()*interval '7 days' else now() end where student=uid and word=c.word;\n insert into public.rw_review_cards(student,word,meaning,stage,due_at) values(uid,c.word,c.meaning,case when ok then 1 else 0 end,case when ok then now()+interval '14 days' else now() end)\n on conflict(student,word) do update set meaning=excluded.meaning,stage=excluded.stage,due_at=excluded.due_at;\n return ok;\nend $function$\n"
+    },
+    {
+      "name": "rw_finish_relearning",
+      "definition": "CREATE OR REPLACE FUNCTION public.rw_finish_relearning()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\nbegin\n if new.correct then update public.rw_known_checks set state='pending',due_at=now()+interval '1 day' where student=new.student and word=new.word and state='relearn';end if;\n return new;\nend $function$\n"
+    },
+    {
+      "name": "rw_vocabulary_periods",
+      "definition": "CREATE OR REPLACE FUNCTION public.rw_vocabulary_periods()\n RETURNS jsonb\n LANGUAGE sql\n STABLE\n SET search_path TO ''\nAS $function$\nwith clock as (\n select now() as instant,now() at time zone 'Asia/Shanghai' as local_now\n), periods as (\n select p, date_trunc(p,local_now)::date as start_day,local_now::date as today,instant\n from clock cross join (values('week'),('month'),('year')) v(p)\n), events as (\n select lower(regexp_replace(trim(word),'\\s+',' ','g')) word,at\n from public.rw_answers\n where student=auth.uid() and correct and at>=((select min(start_day)::timestamp from periods) at time zone 'Asia/Shanghai')\n union all\n select lower(regexp_replace(trim(a->>'word'),'\\s+',' ','g')),b.at\n from public.rw_book_tests b cross join lateral jsonb_array_elements(b.answers) a\n where b.student=auth.uid() and a->>'correct'='true'\n and b.at>=((select min(start_day)::timestamp from periods) at time zone 'Asia/Shanghai')\n), first_answers as (\n select p,word,min((at at time zone 'Asia/Shanghai')::date) first_day\n from periods join events on at>=start_day::timestamp at time zone 'Asia/Shanghai' and at<=instant\n where word is not null and word<>'' group by p,word\n), buckets as (\n select p,start_day,today,generate_series(start_day::timestamp,\n case when p='year' then date_trunc('month',today::timestamp) else today::timestamp end,\n case when p='year' then interval '1 month' else interval '1 day' end)::date as bucket_day\n from periods\n), points as (\n select b.p,b.start_day,b.today,b.bucket_day,count(f.word) total\n from buckets b left join first_answers f on f.p=b.p and\n f.first_day<=case when b.p='year' then least(b.today,(b.bucket_day+interval '1 month'-interval '1 day')::date) else b.bucket_day end\n group by b.p,b.start_day,b.today,b.bucket_day\n), series as (\n select p,jsonb_build_object('start',min(start_day),'end',max(today),'total',max(total),\n 'points',jsonb_agg(jsonb_build_object('day',bucket_day,'total',total) order by bucket_day)) data\n from points group by p\n) select jsonb_object_agg(p,data) from series\n$function$\n"
+    },
+    {
+      "name": "rw_skip_familiar",
+      "definition": "CREATE OR REPLACE FUNCTION public.rw_skip_familiar(p_task uuid, p_index integer, p_word text, p_meaning text)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\ndeclare uid uuid:=auth.uid(); grp text; w jsonb; k text; m text;\nbegin\n select cohort into grp from public.rw_members where user_id=uid and role='student' and password_changed;\n if not found then raise exception 'student required'; end if;\n if p_task is not null then\n select words->p_index into w from public.rw_tasks where id=p_task and (cohort is null or cohort=grp) and p_index>=0;\n if w is null and p_index>=0 then select words->p_index into w from public.rw_libraries where id=p_task;end if;\nk:=lower(trim(w->>'en'));m:=w->>'zh';\n else\n k:=lower(trim(p_word));m:=p_meaning;\n if not(k=any(array['discover','balloon','wheel','central','although','attach','pull','international','path','technique','depend','describe','decide','develop','practice','improve','knowledge','journey','prepare','remember'])) then raise exception 'unknown word'; end if;\n end if;\n if k is null or m is null or length(m)>500 then raise exception 'invalid word';end if;\n perform pg_advisory_xact_lock(hashtextextended(uid::text,0));\n insert into public.rw_known_checks values(uid,k,m,now()+interval '1 day' +random()*interval '2 days','pending') on conflict do nothing;\n if exists(select 1 from public.rw_known_checks where student=uid and word=k and (state='relearn' or due_at<=now())) then raise exception '请先完成这个词的抽查或重学';end if;\nend $function$\n"
+    },
+    {
+      "name": "rw_submit_group",
+      "definition": "CREATE OR REPLACE FUNCTION public.rw_submit_group(p_id uuid, p_title text, p_answers jsonb)\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\ndeclare uid uuid:=auth.uid(); grp text; prior public.rw_group_tests; a jsonb; w jsonb; k text;\n refs jsonb:='[]'; seen text[]:='{}'; n int:=0; ok boolean; t uuid; idx int;\nbegin\n select cohort into grp from public.rw_members where user_id=uid and role='student' and password_changed;\n if not found then raise exception 'student required';end if;\n perform pg_advisory_xact_lock(hashtextextended(uid::text,0));\n select * into prior from public.rw_group_tests where id=p_id and student=uid;\n if found then return jsonb_build_object('correct',prior.correct,'passed',prior.correct>=9,'answers',prior.answers);end if;\n if p_answers is null or jsonb_typeof(p_answers)<>'array' or jsonb_array_length(p_answers)<>10 then raise exception 'exactly ten questions required';end if;\n if p_title is null or length(p_title)>200 then raise exception 'invalid title';end if;\n for a in select value from jsonb_array_elements(p_answers) loop\n t:=(a->>'task')::uuid;idx:=(a->>'index')::integer;\n if idx is null or idx<0 then raise exception 'invalid index';end if;\n if t is not null then select words->idx into w from public.rw_tasks where id=t and (cohort is null or cohort=grp);\n if w is null then select words->idx into w from public.rw_libraries where id=t;end if;\n else w:='[{\"en\":\"discover\",\"zh\":\"发现；发觉\"},{\"en\":\"balloon\",\"zh\":\"气球\"},{\"en\":\"wheel\",\"zh\":\"轮子\"},{\"en\":\"central\",\"zh\":\"中心的\"},{\"en\":\"although\",\"zh\":\"虽然；尽管\"},{\"en\":\"attach\",\"zh\":\"系上；连接\"},{\"en\":\"pull\",\"zh\":\"拉；拖\"},{\"en\":\"international\",\"zh\":\"国际的\"},{\"en\":\"path\",\"zh\":\"小路；路径\"},{\"en\":\"technique\",\"zh\":\"技术；技巧\"},{\"en\":\"depend\",\"zh\":\"依靠；取决于\"},{\"en\":\"describe\",\"zh\":\"描述\"},{\"en\":\"decide\",\"zh\":\"决定\"},{\"en\":\"develop\",\"zh\":\"发展；培养\"},{\"en\":\"practice\",\"zh\":\"练习\"},{\"en\":\"improve\",\"zh\":\"提高；改善\"},{\"en\":\"knowledge\",\"zh\":\"知识\"},{\"en\":\"journey\",\"zh\":\"旅程\"},{\"en\":\"prepare\",\"zh\":\"准备\"},{\"en\":\"remember\",\"zh\":\"记住\"}]'::jsonb->idx;end if;\n k:=lower(trim(w->>'en'));\n if k is null or k=any(seen) or a->>'choice' is null or length(a->>'choice')>300 then raise exception 'invalid or duplicate word';end if;\n seen:=array_append(seen,k);\n ok:=public.rw_practice(gen_random_uuid(),'quiz',t,idx,k,a->>'choice');\n if ok then n:=n+1;end if;\n refs:=refs||jsonb_build_array(jsonb_build_object('task',t,'index',idx,'word',k,'correct',ok));\n end loop;\n insert into public.rw_group_tests values(p_id,uid,p_title,now(),refs,n);\n if n>=9 then\n for a in select value from jsonb_array_elements(refs) loop\n if a->>'task' is not null and exists(select 1 from public.rw_tasks where id=(a->>'task')::uuid and (cohort is null or cohort=grp)) then insert into public.rw_progress(user_id,task_id,word_index) values(uid,(a->>'task')::uuid,(a->>'index')::integer) on conflict do nothing;end if;\n end loop;\n end if;\n return jsonb_build_object('correct',n,'passed',n>=9,'answers',refs);\nend $function$\n"
+    },
+    {
+      "name": "rw_submit_five",
+      "definition": "CREATE OR REPLACE FUNCTION public.rw_submit_five(p_id uuid, p_title text, p_group jsonb, p_answers jsonb)\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\ndeclare uid uuid:=auth.uid(); grp text; prior public.rw_group_tests; a jsonb; w jsonb; k text;\n refs jsonb:='[]'; seen text[]:='{}'; n int:=0; ok boolean; t uuid; idx int;\nbegin\n select cohort into grp from public.rw_members where user_id=uid and role='student' and password_changed;\n if not found then raise exception 'student required';end if;\n perform pg_advisory_xact_lock(hashtextextended(uid::text,0));\n select * into prior from public.rw_group_tests where id=p_id and student=uid;\n if found then return jsonb_build_object('correct',prior.correct,'passed',prior.correct>=5,'answers',prior.answers);end if;\n if p_answers is null or jsonb_typeof(p_answers)<>'array' or jsonb_array_length(p_answers)<>5 then raise exception 'exactly five questions required';end if;\n if p_title is null or length(p_title)>200 then raise exception 'invalid title';end if;\n if p_group is null or jsonb_typeof(p_group)<>'array' or jsonb_array_length(p_group)<>10 then raise exception 'ten learning words required';end if;\n for a in select value from jsonb_array_elements(p_group) loop\n t:=(a->>'task')::uuid;idx:=(a->>'index')::integer;\n if idx is null or idx<0 then raise exception 'invalid index';end if;\n if t is not null then select words->idx into w from public.rw_tasks where id=t and (cohort is null or cohort=grp);\n if w is null then select words->idx into w from public.rw_libraries where id=t;end if;\n else w:='[{\"en\":\"discover\",\"zh\":\"发现；发觉\"},{\"en\":\"balloon\",\"zh\":\"气球\"},{\"en\":\"wheel\",\"zh\":\"轮子\"},{\"en\":\"central\",\"zh\":\"中心的\"},{\"en\":\"although\",\"zh\":\"虽然；尽管\"},{\"en\":\"attach\",\"zh\":\"系上；连接\"},{\"en\":\"pull\",\"zh\":\"拉；拖\"},{\"en\":\"international\",\"zh\":\"国际的\"},{\"en\":\"path\",\"zh\":\"小路；路径\"},{\"en\":\"technique\",\"zh\":\"技术；技巧\"},{\"en\":\"depend\",\"zh\":\"依靠；取决于\"},{\"en\":\"describe\",\"zh\":\"描述\"},{\"en\":\"decide\",\"zh\":\"决定\"},{\"en\":\"develop\",\"zh\":\"发展；培养\"},{\"en\":\"practice\",\"zh\":\"练习\"},{\"en\":\"improve\",\"zh\":\"提高；改善\"},{\"en\":\"knowledge\",\"zh\":\"知识\"},{\"en\":\"journey\",\"zh\":\"旅程\"},{\"en\":\"prepare\",\"zh\":\"准备\"},{\"en\":\"remember\",\"zh\":\"记住\"}]'::jsonb->idx;end if;\n\n k:=lower(trim(w->>'en'));\n if k is null or k=any(seen) then raise exception 'invalid learning group';end if;\n seen:=array_append(seen,k);\n end loop;\n seen:='{}';\n for a in select value from jsonb_array_elements(p_answers) loop\n if not exists(select 1 from jsonb_array_elements(p_group) g where g->>'task' is not distinct from a->>'task' and g->>'index'=a->>'index') then raise exception 'answer outside group';end if;\n t:=(a->>'task')::uuid;idx:=(a->>'index')::integer;\n if idx is null or idx<0 then raise exception 'invalid index';end if;\n if t is not null then select words->idx into w from public.rw_tasks where id=t and (cohort is null or cohort=grp);\n if w is null then select words->idx into w from public.rw_libraries where id=t;end if;\n else w:='[{\"en\":\"discover\",\"zh\":\"发现；发觉\"},{\"en\":\"balloon\",\"zh\":\"气球\"},{\"en\":\"wheel\",\"zh\":\"轮子\"},{\"en\":\"central\",\"zh\":\"中心的\"},{\"en\":\"although\",\"zh\":\"虽然；尽管\"},{\"en\":\"attach\",\"zh\":\"系上；连接\"},{\"en\":\"pull\",\"zh\":\"拉；拖\"},{\"en\":\"international\",\"zh\":\"国际的\"},{\"en\":\"path\",\"zh\":\"小路；路径\"},{\"en\":\"technique\",\"zh\":\"技术；技巧\"},{\"en\":\"depend\",\"zh\":\"依靠；取决于\"},{\"en\":\"describe\",\"zh\":\"描述\"},{\"en\":\"decide\",\"zh\":\"决定\"},{\"en\":\"develop\",\"zh\":\"发展；培养\"},{\"en\":\"practice\",\"zh\":\"练习\"},{\"en\":\"improve\",\"zh\":\"提高；改善\"},{\"en\":\"knowledge\",\"zh\":\"知识\"},{\"en\":\"journey\",\"zh\":\"旅程\"},{\"en\":\"prepare\",\"zh\":\"准备\"},{\"en\":\"remember\",\"zh\":\"记住\"}]'::jsonb->idx;end if;\n k:=lower(trim(w->>'en'));\n if k is null or k=any(seen) or a->>'choice' is null or length(a->>'choice')>300 then raise exception 'invalid or duplicate word';end if;\n seen:=array_append(seen,k);\n ok:=public.rw_practice(gen_random_uuid(),'quiz',t,idx,k,a->>'choice');\n if ok then n:=n+1;end if;\n refs:=refs||jsonb_build_array(jsonb_build_object('task',t,'index',idx,'word',k,'correct',ok));\n end loop;\n insert into public.rw_group_tests values(p_id,uid,p_title,now(),refs,n);\n if n>=5 then\n for a in select value from jsonb_array_elements(p_group) loop\n if a->>'task' is not null and exists(select 1 from public.rw_tasks where id=(a->>'task')::uuid and (cohort is null or cohort=grp)) then insert into public.rw_progress(user_id,task_id,word_index) values(uid,(a->>'task')::uuid,(a->>'index')::integer) on conflict do nothing;end if;\n end loop;\n end if;\n return jsonb_build_object('correct',n,'passed',n>=5,'answers',refs);\nend $function$\n"
+    },
+    {
+      "name": "rw_passed_periods",
+      "definition": "CREATE OR REPLACE FUNCTION public.rw_passed_periods()\n RETURNS jsonb\n LANGUAGE sql\n STABLE\n SET search_path TO ''\nAS $function$\nwith clock as (\n select now() as instant,now() at time zone 'Asia/Shanghai' as local_now\n), periods as (\n select p,date_trunc(p,local_now) as starts,local_now,instant,\n date_trunc(p,local_now)+case p when 'day' then interval '1 day' when 'week' then interval '7 days' when 'month' then interval '1 month' else interval '1 year' end as ends,\n case p when 'day' then interval '1 hour' when 'year' then interval '1 month' else interval '1 day' end as step\n from clock cross join (values('day'),('week'),('month'),('year')) v(p)\n), events as (\n select lower(regexp_replace(trim(a->>'word'),'\\s+',' ','g')) as word,t.at\n from public.rw_group_tests t cross join lateral jsonb_array_elements(t.answers) a\n where t.student=auth.uid() and jsonb_array_length(t.answers)>0\n and t.correct::numeric/nullif(jsonb_array_length(t.answers),0)>=0.9\n and a->>'correct'='true'\n and t.at>=((select min(starts) from periods) at time zone 'Asia/Shanghai')\n and t.at<=(select instant from clock)\n), first_pass as (\n select p,word,min(at at time zone 'Asia/Shanghai') as first_at\n from periods join events on at>=(starts at time zone 'Asia/Shanghai')\n where word is not null and word<>'' group by p,word\n), buckets as (\n select p,starts,ends,local_now,step,generate_series(starts,ends-step,step) as bucket_at from periods\n), points as (\n select b.p,b.starts,b.ends,b.local_now,b.bucket_at,\n case when b.bucket_at>b.local_now then null else count(f.word) end as total\n from buckets b left join first_pass f on f.p=b.p and f.first_at>=b.bucket_at and f.first_at<b.bucket_at+b.step\n group by b.p,b.starts,b.ends,b.local_now,b.bucket_at\n), series as (\n select p,jsonb_build_object('start',min(starts)::date,'end',(max(ends)-interval '1 day')::date,'asOf',max(local_now)::date,\n 'total',coalesce(sum(total),0),\n 'points',jsonb_agg(jsonb_build_object('day',to_char(bucket_at,'YYYY-MM-DD\"T\"HH24:MI:SS'),'total',total) order by bucket_at)) data\n from points group by p\n) select jsonb_object_agg(p,data) from series\n$function$\n"
+    },
+    {
+      "name": "mastery_norm",
+      "definition": "CREATE OR REPLACE FUNCTION rw_private.mastery_norm(value text)\n RETURNS text\n LANGUAGE sql\n IMMUTABLE\n SET search_path TO ''\nAS $function$\n select lower(regexp_replace(btrim(translate(coalesce(value,''),'’‘','''''')),'\\s+',' ','g'))\n$function$\n"
+    },
+    {
+      "name": "mastery_source",
+      "definition": "CREATE OR REPLACE FUNCTION rw_private.mastery_source(p_kind text, p_source uuid)\n RETURNS jsonb\n LANGUAGE plpgsql\n STABLE\n SET search_path TO ''\nAS $function$\ndeclare uid uuid:=auth.uid(); grp text; b jsonb; pool jsonb;\nbegin\n select cohort into grp from public.rw_members where user_id=uid and role='student' and password_changed;\n if not found then raise exception 'student_required';end if;\n if p_kind='library' then\n  select jsonb_build_object('id',id,'title',case when nullif(btrim(book),'') is null then title else book||' · '||title end,\n    'category',category,'words',words) into b from public.rw_libraries where id=p_source;\n elsif p_kind='task' then\n  select jsonb_build_object('id',id,'title',title,'category',category,'words',words) into b\n  from public.rw_tasks where id=p_source and (cohort is null or cohort=grp);\n elsif p_kind='basic' and p_source is null then\n  b:=jsonb_build_object('id',null,'title','基础词汇','category','reading','words','[{\"en\":\"discover\",\"zh\":\"发现；发觉\",\"pos\":\"v.\",\"example\":\"We hope to discover a new star.\",\"translation\":\"我们希望发现一颗新星。\"},{\"en\":\"balloon\",\"zh\":\"气球\",\"pos\":\"n.\",\"example\":\"The red balloon flew away.\",\"translation\":\"那个红气球飞走了。\"},{\"en\":\"wheel\",\"zh\":\"轮子\",\"pos\":\"n.\",\"example\":\"My bike has a broken wheel.\",\"translation\":\"我的自行车有一个轮子坏了。\"},{\"en\":\"central\",\"zh\":\"中心的\",\"pos\":\"adj.\",\"example\":\"Meet me at the central station.\",\"translation\":\"在中心车站和我见面吧。\"},{\"en\":\"although\",\"zh\":\"虽然；尽管\",\"pos\":\"conj.\",\"example\":\"Although it was cold, we went outside.\",\"translation\":\"虽然天气很冷，我们还是出门了。\"},{\"en\":\"attach\",\"zh\":\"系上；连接\",\"pos\":\"v.\",\"example\":\"Please attach a photo to your email.\",\"translation\":\"请在邮件中附上一张照片。\"},{\"en\":\"pull\",\"zh\":\"拉；拖\",\"pos\":\"v.\",\"example\":\"Please pull the door open.\",\"translation\":\"请把门拉开。\"},{\"en\":\"international\",\"zh\":\"国际的\",\"pos\":\"adj.\",\"example\":\"She studies at an international school.\",\"translation\":\"她在一所国际学校学习。\"},{\"en\":\"path\",\"zh\":\"小路；路径\",\"pos\":\"n.\",\"example\":\"Follow the path to the lake.\",\"translation\":\"沿着小路走到湖边。\"},{\"en\":\"technique\",\"zh\":\"技术；技巧\",\"pos\":\"n.\",\"example\":\"Our coach taught us a new swimming technique.\",\"translation\":\"教练教了我们一种新的游泳技巧。\"},{\"en\":\"depend\",\"zh\":\"依靠；取决于\",\"pos\":\"v.\",\"example\":\"Young birds depend on their parents.\",\"translation\":\"幼鸟依靠父母生活。\"},{\"en\":\"describe\",\"zh\":\"描述\",\"pos\":\"v.\",\"example\":\"Can you describe your room?\",\"translation\":\"你能描述一下你的房间吗？\"},{\"en\":\"decide\",\"zh\":\"决定\",\"pos\":\"v.\",\"example\":\"We must decide where to go.\",\"translation\":\"我们必须决定去哪里。\"},{\"en\":\"develop\",\"zh\":\"发展；培养\",\"pos\":\"v.\",\"example\":\"We can develop good habits at school.\",\"translation\":\"我们可以在学校培养好习惯。\"},{\"en\":\"practice\",\"zh\":\"练习\",\"pos\":\"v.\",\"example\":\"We practice English after school.\",\"translation\":\"我们放学后练习英语。\"},{\"en\":\"improve\",\"zh\":\"提高；改善\",\"pos\":\"v.\",\"example\":\"Reading helps me improve my English.\",\"translation\":\"阅读帮助我提高英语水平。\"},{\"en\":\"knowledge\",\"zh\":\"知识\",\"pos\":\"n.\",\"example\":\"Books give us knowledge.\",\"translation\":\"书籍给我们知识。\"},{\"en\":\"journey\",\"zh\":\"旅程\",\"pos\":\"n.\",\"example\":\"Our journey began on Monday.\",\"translation\":\"我们的旅程从星期一开始。\"},{\"en\":\"prepare\",\"zh\":\"准备\",\"pos\":\"v.\",\"example\":\"Let''s prepare lunch together.\",\"translation\":\"我们一起准备午餐吧。\"},{\"en\":\"remember\",\"zh\":\"记住\",\"pos\":\"v.\",\"example\":\"I remember your name.\",\"translation\":\"我记得你的名字。\"}]'::jsonb);\n end if;\n if b is null then raise exception 'book_unavailable';end if;\n with items as (\n  select w,ordinality, rw_private.mastery_norm(w->>'en') en_key,\n   md5(rw_private.mastery_norm(w->>'en')||chr(31)||rw_private.mastery_norm(w->>'zh')) word_key\n  from jsonb_array_elements(b->'words') with ordinality x(w,ordinality)\n  where nullif(btrim(w->>'en'),'') is not null and nullif(btrim(w->>'zh'),'') is not null\n ), unique_items as (\n  select distinct on(en_key) * from items order by en_key,ordinality\n )\n select coalesce(jsonb_agg(w||jsonb_build_object('word_key',word_key,'en_key',en_key,\n    'difficulty',case when w->>'difficulty' in ('1','2','3') then (w->>'difficulty')::int else 2 end,\n    'graded',w->>'difficulty' in ('1','2','3')) order by ordinality),'[]') into pool from unique_items;\n return b||jsonb_build_object('kind',p_kind,'source_key',p_kind||':'||coalesce(p_source::text,'default'),'words',pool);\nend $function$\n"
+    },
+    {
+      "name": "mastery_summary",
+      "definition": "CREATE OR REPLACE FUNCTION rw_private.mastery_summary(p_kind text, p_source uuid, p_mode text)\n RETURNS jsonb\n LANGUAGE plpgsql\n STABLE\n SET search_path TO ''\nAS $function$\ndeclare b jsonb; pool jsonb; report jsonb;\nbegin\n b:=rw_private.mastery_source(p_kind,p_source);pool:=b->'words';\n if p_mode not in ('reading','writing') then raise exception 'invalid_mode';end if;\n with population as (\n  select w->>'word_key' key,(w->>'difficulty')::int level from jsonb_array_elements(pool) w\n ), events as (\n  select r->>'word_key' key,(r->>'correct')::boolean correct,s.submitted_at at,s.id,\n   row_number() over(partition by r->>'word_key' order by s.submitted_at desc,s.id desc) rank\n  from public.rw_mastery_sessions s cross join lateral jsonb_array_elements(s.results) r\n  join population p on p.key=r->>'word_key'\n  where s.student=auth.uid() and s.source_key=b->>'source_key' and s.mode=p_mode and s.status='completed'\n    and not coalesce((r->>'assisted')::boolean,false)\n ), latest as (\n  select * from events where rank=1\n ), delayed as (\n  select l.key from latest l\n  where l.correct and exists(\n   select 1 from events e where e.key=l.key and e.correct and e.at<=l.at-interval '24 hours'\n   and not exists(select 1 from events bad where bad.key=l.key and not bad.correct and bad.at>=e.at and bad.at<=l.at)\n  )\n ), levels as (\n  select p.level,count(*) n,count(l.key) tested,count(*) filter(where l.correct) correct\n  from population p left join latest l using(key) group by p.level\n )\n select jsonb_build_object(\n  'total',(select count(*) from population),\n  'tested',(select count(*) from latest),\n  'correct',(select count(*) from latest where correct),\n  'delayed',(select count(*) from delayed),\n  'coverage',coalesce(round(100.0*(select count(*) from latest)/nullif((select count(*) from population),0)),0),\n  'estimate',case when min(tested)>0 and sum(tested)>=least(5,sum(n)) then\n   case when sum(tested)=sum(n) then round(100.0*sum(correct)/nullif(sum(n),0))\n    else 5*round(20.0*sum(n*correct::numeric/nullif(tested,0))/nullif(sum(n),0)) end else null end,\n  'last_test',(select max(at) from latest),\n  'ungraded',(select count(*) from jsonb_array_elements(pool) w where not coalesce((w->>'graded')::boolean,false))\n ) into report from levels;\n return report;\nend $function$\n"
+    },
+    {
+      "name": "rw_mastery_books",
+      "definition": "CREATE OR REPLACE FUNCTION public.rw_mastery_books()\n RETURNS jsonb\n LANGUAGE plpgsql\n STABLE SECURITY DEFINER\n SET search_path TO ''\nAS $function$\ndeclare uid uuid:=auth.uid(); grp text; r record; b jsonb; result jsonb:='[]';\nbegin\n select cohort into grp from public.rw_members where user_id=uid and role='student' and password_changed;\n if not found then raise exception 'student_required';end if;\n for r in\n  select 'basic'::text kind,null::uuid id\n  union all select 'library',l.id from public.rw_libraries l join public.rw_bookshelf s on s.library=l.id and s.student=uid\n  union all select 'task',t.id from public.rw_tasks t where t.cohort is null or t.cohort=grp\n loop\n  b:=rw_private.mastery_source(r.kind,r.id);\n  if jsonb_array_length(b->'words')>0 then\n   result:=result||jsonb_build_array((b-'words')||jsonb_build_object('summary',rw_private.mastery_summary(r.kind,r.id,b->>'category')));\n  end if;\n end loop;\n return result;\nend $function$\n"
+    },
+    {
+      "name": "rw_finish_mastery",
+      "definition": "CREATE OR REPLACE FUNCTION public.rw_finish_mastery(p_test uuid, p_responses jsonb)\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\ndeclare uid uuid:=auth.uid(); s public.rw_mastery_sessions; q jsonb; a jsonb; result_rows jsonb:='[]'; i int;\n response text; ok boolean; canonical boolean; assisted boolean; current_book jsonb;\nbegin\n if not exists(select 1 from public.rw_members where user_id=uid and role='student' and password_changed) then raise exception 'student_required';end if;\n perform pg_advisory_xact_lock(hashtextextended(uid::text,0));\n select * into s from public.rw_mastery_sessions where id=p_test and student=uid for update;\n if not found then raise exception 'test_unavailable';end if;\n if s.status='abandoned' then raise exception 'test_restarted';end if;\n -- Permission and current word meanings are checked again on submission.\n current_book:=rw_private.mastery_source(s.source_kind,s.source_id);\n if s.status='completed' then\n  return jsonb_build_object('id',s.id,'results',s.results,'mode',s.mode,\n   'summary',rw_private.mastery_summary(s.source_kind,s.source_id,s.mode));\n end if;\n if p_responses is null or jsonb_typeof(p_responses)<>'array' or jsonb_array_length(p_responses)<>jsonb_array_length(s.questions) then raise exception 'incomplete_test';end if;\n for i in 0..jsonb_array_length(s.questions)-1 loop\n  q:=s.questions->i;a:=p_responses->i;\n  if jsonb_typeof(a)<>'object' or a->>'value' is null or length(a->>'value')>1000 then raise exception 'invalid_response';end if;\n  response:=rw_private.mastery_norm(a->>'value');\n  assisted:=coalesce((a->>'assisted')::boolean,false);\n  if s.mode='reading' and response<>'' and not exists(select 1 from jsonb_array_elements(q->'options') o where rw_private.mastery_norm(o->>'en')=response) then raise exception 'invalid_option';end if;\n  canonical:=response<>'' and response=rw_private.mastery_norm(q->>'en');\n  ok:=canonical;\n  if s.mode='writing' and not ok and jsonb_typeof(q->'alternatives')='array' then\n   select exists(select 1 from jsonb_array_elements_text(q->'alternatives') v where response<>'' and rw_private.mastery_norm(v)=response) into ok;\n  end if;\n  result_rows:=result_rows||jsonb_build_array(jsonb_build_object('word',q->>'en','meaning',q->>'zh','pos',q->>'pos',\n   'word_key',q->>'word_key','difficulty',q->'difficulty','response',a->>'value','correct',ok,'assisted',assisted,\n   'alternative',ok and not canonical,'type',case s.mode when 'reading' then '阅读辨义' else '作文默写' end));\n end loop;\n update public.rw_mastery_sessions set status='completed',submitted_at=now(),results=result_rows where id=s.id;\n -- Keep the existing personal history entry point useful.\n insert into public.rw_book_tests(id,student,title,at,answers,sentence)\n values(s.id,uid,s.title,now(),result_rows,jsonb_build_object('kind','mastery','mode',s.mode,'source_key',s.source_key));\n return jsonb_build_object('id',s.id,'results',result_rows,'mode',s.mode,\n  'summary',rw_private.mastery_summary(s.source_kind,s.source_id,s.mode));\nend $function$\n"
+    }
+  ]
+}
