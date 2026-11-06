@@ -1,3 +1,4 @@
+export {assessment} from './mastery.mjs?v=mastery-20261106';
 import {audible,quiet,speak} from './reading-audio.mjs';
 import {contexts,example,choices,norm,partOfSpeech} from './word-context.mjs?v=books-periods-20261106';
 
@@ -6,63 +7,6 @@ function corrections(rows,E){
  box.append(E('p',missed.length?'需复习':'本轮词汇全对'));
  for(const a of missed)box.append(audible(a.word),E('small',partOfSpeech({en:a.word,zh:a.meaning,pos:a.pos})));
  return box
-}
-export function assessment({t,basic,app,E,button,mix,api,active,back,prepareChime,feedback}){
- const unique=[...new Map(t.words.map(w=>[norm(w.en),w])).values()];
- const rank=w=>Number.isFinite(w.difficulty)?w.difficulty:contexts.get(norm(w.en))?.rank??100;
- const words=mix(unique).slice(0,20).sort((a,b)=>rank(a)-rank(b));
- const answers=[],id=crypto.randomUUID(),card=E('section',null,'card');
- app.replaceChildren(button('‹ 返回',back,'back'),E('h1',t.title+' · 测评'),card);
- let answering=false;
- async function record(w,type,value,target){
-  if(answering||!active())return;answering=true;prepareChime();
-  card.querySelectorAll('button,input').forEach(x=>x.disabled=true);
-  if(target)feedback(target,norm(value)===norm(w.en));
-  answers.push({word:w.en,meaning:w.zh,pos:partOfSpeech(w),type,correct:norm(value)===norm(w.en)});
-  await new Promise(resolve=>setTimeout(resolve,520));
-  if(active()){answering=false;next()}
- }
- function next(){if(!active())return;quiet();
-  const i=answers.length;
-  if(i===words.length){translation();return}
-  const w=words[i],read=i%2===0,bar=E('progress');bar.max=words.length;bar.value=i;
-  card.replaceChildren(E('small','第 '+(i+1)+' / '+words.length+' 词'),E('br'),bar,E('p',read?'阅读 · 选择中文意思':'写作 · 拼出本书对应的英文'),audible(read?w.en:w.zh,'word',read?'en-US':'zh-CN'),E('small',partOfSpeech(w)));
-  speak([read?w.en:w.zh],read?'en-US':'zh-CN');
-  if(read){for(const opt of choices(w,[...unique,...basic.words],mix)){const option=button(opt.zh,()=>record(w,'阅读',opt.en,option),'option');card.append(option)}}
-  else{
-   const form=E('form'),input=E('input'),submit=E('button','提交','primary');input.required=true;input.placeholder='输入英文';input.autocomplete='off';input.autocapitalize='none';input.spellcheck=false;
-   form.append(input,submit);form.onsubmit=e=>{e.preventDefault();record(w,'拼写',input.value,input)};card.append(form)
-  }
-  card.append(button('不会，跳过',()=>record(w,read?'阅读':'拼写',''),'back'))
- }
- function translation(){
-  const w=[...words].reverse().find(example);
-  const sentence=w?example(w):{en:'How do you spell the word "'+words[0].en+'"?',zh:'你怎么拼写表示“'+words[0].zh+'”的这个英语单词？'};
-  const input=E('textarea'),hint=E('p','可用键盘听写或打字。点语音后，浏览器可能使用其语音服务。');input.maxLength=600;input.placeholder='用英语翻译，可在提交前修改';input.style.width='100%';input.rows=3;
-  let rec=null,payload;
-  function stop(){if(rec){rec.onresult=null;rec.abort();rec=null}}
-  const observer=new MutationObserver(()=>{if(!card.isConnected){stop();observer.disconnect()}});observer.observe(app,{childList:true});
-  const mic=button('说出英文',()=>{
-   quiet();if(rec){rec.stop();return}
-   const R=window.SpeechRecognition||window.webkitSpeechRecognition;
-   if(!R){hint.textContent='请使用手机键盘上的听写按钮，或直接输入。';input.focus();return}
-   const r=new R();r.lang='en-US';r.onresult=e=>{input.value=(input.value+' '+e.results[0][0].transcript).trim().slice(0,600)};
-   r.onerror=()=>{hint.textContent='未收到清晰的录音，可以重试或打字。'};r.onend=()=>{rec=null;mic.textContent='说出英文'};r.start();rec=r;mic.textContent='结束录音'
-  });
-  async function finish(skip){
-   if(!skip&&!input.value.trim()){input.focus();return}
-   stop();observer.disconnect();
-   payload??={id,title:t.title.slice(0,200),answers,sentence:{prompt:sentence.zh,reference:sentence.en,response:skip?'':input.value.trim()}};
-   const buttons=[...card.querySelectorAll('button')];buttons.forEach(b=>b.disabled=true);input.disabled=true;
-   try{await api('/rest/v1/rw_book_tests','POST',payload)}catch(e){
-    if(e.status!==409||!(await api('/rest/v1/rw_book_tests?id=eq.'+id+'&select=id')).length){hint.textContent='未确认保存，请重试。';throw e}
-   }
-   if(!active())return;
-   card.replaceChildren(E('h2','本次抽测结果'),E('p',score(answers)),corrections(answers,E),E('small','你的译文'),payload.sentence.response?audible(payload.sentence.response):E('p','已跳过'),E('small','参考译文'),audible(sentence.en),E('small','对照意思核对译文；句子单列，不计入词汇正确率。'),button('返回',back,'primary'))
-  }
-  card.replaceChildren(E('small','词汇 '+words.length+' / '+words.length+' 已完成'),E('h2','最后一题 · 汉译英'),audible(sentence.zh,'','zh-CN'),input,mic,button('确认并保存',()=>finish(false),'primary'),button('跳过并保存',()=>finish(true),'back'),hint)
- }
- next()
 }
 function score(rows){return [...new Set(rows.map(x=>x.type))].map(type=>{const a=rows.filter(x=>x.type===type);return type+' '+a.filter(x=>x.correct).length+' / '+a.length}).join('　·　')}
 export async function profile({app,E,button,row,api,me,member,summary,tasks,due,logout,active,review}){
@@ -122,7 +66,7 @@ export async function profile({app,E,button,row,api,me,member,summary,tasks,due,
   const viewport=E('div');viewport.setAttribute('aria-label','最近学习记录');viewport.setAttribute('role','region');viewport.tabIndex=0;
   viewport.style.cssText='max-height:min(430px,52dvh);overflow-y:auto;overscroll-behavior:contain;padding:0 4px';
   history.replaceChildren(controls,E('h2','最近学习'),...['全部','背词','测评'].map((s,i)=>button(s,()=>records(i?s:''))),viewport);
-  for(const item of items.slice(page*10,(page+1)*10)){const d=E('details'),label=E('summary',new Date(item.at).toLocaleDateString('zh-CN')+'　'+item.label);if(item.test){d.append(label,corrections(item.test.answers,E),E('small','你的译文'),item.test.sentence.response?audible(item.test.sentence.response):E('p','已跳过'),audible(item.test.sentence.reference));viewport.append(d)}else{const line=E('p',new Date(item.at).toLocaleDateString('zh-CN')+' · '+item.label.slice(item.word.length+3));line.append(audible(item.word));viewport.append(line)}}
+  for(const item of items.slice(page*10,(page+1)*10)){const d=E('details'),label=E('summary',new Date(item.at).toLocaleDateString('zh-CN')+'　'+item.label);if(item.test){d.append(label,corrections(item.test.answers,E));if(item.test.sentence?.kind!=='mastery')d.append(E('small','你的译文'),item.test.sentence.response?audible(item.test.sentence.response):E('p','已跳过'),audible(item.test.sentence.reference));viewport.append(d)}else{const line=E('p',new Date(item.at).toLocaleDateString('zh-CN')+' · '+item.label.slice(item.word.length+3));line.append(audible(item.word));viewport.append(line)}}
   if(!items.length)viewport.append(E('p','还没有这类记录'))
  }
  chart('day');records('');
