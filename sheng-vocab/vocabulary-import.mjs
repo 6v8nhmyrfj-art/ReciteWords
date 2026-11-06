@@ -38,11 +38,14 @@ export function parseVocabulary(text){
    if(!example.toLowerCase().includes(en.toLowerCase())){errors.push('第 '+line+' 行例句需包含原词「'+en+'」');continue}
   }else{
    zh=cells[1]===''?cells[2]:cells[1];
+   if(cells[1]===''||POS.test(cells[1]||'')){example=cells[3]||'';translation=cells[4]||'';}
    if(cells[1]&&POS.test(cells[1])&&cells[2])zh=cells[2];
    if(cells.length>2&&cells.slice(2).some(Boolean)&&zh!==cells[2]){errors.push('第 '+line+' 行短语或句子请使用两列；CSV 中含逗号的句子需用双引号包住');continue}
   }
   if(!en||!zh||!/[a-z]/i.test(en)){errors.push('第 '+line+' 行需要英文和中文翻译');continue}
-  const w={en,zh:clean(zh),...(isWord(en)?{pos:clean(pos),example:clean(example),translation:clean(translation)}:{})};
+  const difficulty={'1':1,'基础':1,'2':2,'常用':2,'3':3,'进阶':3}[clean(cells[5])];
+  if(cells[5]&&!difficulty){errors.push('第 '+line+' 行难度应为 1、2、3 或基础、常用、进阶');continue}
+  const w={en,zh:clean(zh),...(isWord(en)?{pos:clean(pos)}:{}),...(example?{example:clean(example),translation:clean(translation)}:{}),...(difficulty?{difficulty}:{}),...(cells[6]?{test_example:clean(cells[6])}:{}),...(cells[7]?{test_translation:clean(cells[7])}:{})};
   const key=en.toLowerCase().replace(/\s+/g,' ');
   if(seen.has(key)){if(JSON.stringify(seen.get(key))===JSON.stringify(w))duplicates++;else errors.push('第 '+line+' 行「'+en+'」重复且内容不同，请保留需要的版本');continue}
   seen.set(key,w);words.push(w)
