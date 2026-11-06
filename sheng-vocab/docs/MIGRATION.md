@@ -9,7 +9,7 @@
 - `class-ui.mjs`：登录、刷新令牌、按角色加载页面。会话按 environment 隔离；现有环境旧会话自动搬到新键。
 - `data-client.mjs`：账号隔离缓存、请求合并、内容版本、本机待保存作答及幂等重试。更换账号或环境不能读另一账号的缓存。
 - 页面通过 `api(path,method,body)` 访问数据；此接口仍使用 PostgREST/RPC 路径。迁到自建 Supabase 兼容环境主要改配置；换成其他后端需要实现这些协议或替换适配器，并重做认证授权。不能只换数据库地址。
-- `performance.sql`：本次已应用的增量变更。`docs/database-baseline.json` 是变更前结构盘点（11 张业务表、函数、约束和策略），仅供核对，不能代替可恢复的数据库备份。
+- `performance.sql`：第一阶段已应用的增量变更；`review-batches.sql` 是随后新增的按已复习词分批测试接口。`docs/database-baseline.json` 是变更前结构盘点（11 张业务表、函数、约束和策略），仅供核对，不能代替可恢复的数据库备份。
 
 ## 统一格式（保留现有字段，不做破坏性改名）
 
@@ -32,7 +32,7 @@
 | 单本内容 | GET `rw_libraries` / `rw_tasks`，按 id 筛选 | 进入学习/编辑才取内容，依旧受 RLS 保护 |
 | 学生概况 | POST `rpc/rw_student_summary` | 本周/今日统计 |
 | 作答 | POST `rpc/rw_practice` | 服务端最终判题，返回 boolean；p_id 幂等 |
-| 组测 | POST `rpc/rw_submit_five` | 原有 3+3+4 学习、5题全对逻辑 |
+| 组测 | POST `rpc/rw_submit_review_batch` | 每批1至5题，全部答对才记入该批词汇进度；旧 submit_five 保留兼容 |
 | 词书测评 | POST `rpc/rw_begin_mastery` / `rpc/rw_finish_mastery` | 固定测评 ID、云端结果 |
 | 掌握度列表 | POST `rpc/rw_mastery_books` | 短时缓存，提交测评后失效 |
 | 完成任务 | POST `rpc/rw_completed_tasks` | p_limit ≤100、p_offset，服务端聚合分页 |
@@ -66,3 +66,11 @@
 官方参考：
 - https://supabase.com/docs/guides/self-hosting/restore-from-platform
 - https://supabase.com/docs/guides/observability/inspect
+
+## 后续学习流程调整
+
+- 每组最多10个实际词，仍按3/3/4顺序分段学习复习；尾组按实际数量，不加入未学基础词。
+- 本组复习完的所有词分批测试，每批最多5个；尾批仅从本次学习运行中已完成复习的词补题，无足够词则按实际题量。
+- 新接口仅在本批全对时记录本批实际测试的词；不会因为答对5题就将未测试的另5词标为通过。旧记录不追溯改写。
+- 本机运行状态从 rw-groups-v2 迁到 v3，保留可对应的学习/复习阶段；未完成旧版抽测重新生成，新流程按批继续。
+- 专注界面隐藏顶部品牌栏和底部导航，保留返回、题目及选项；常见手机尺寸正常题目不需整页滚动，超长内容保留卡片内滚动以避免遮挡。

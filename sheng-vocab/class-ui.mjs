@@ -1,6 +1,6 @@
-import {createDataClient} from './data-client.mjs?v=performance-20261106';
-import {backendConfig} from './backend-config.mjs?v=performance-20261106';
-import {createClassClient,loginIdentity} from './class-api.mjs?v=performance-20261106';
+import {createDataClient} from './data-client.mjs?v=focus-batches-20261106';
+import {backendConfig} from './backend-config.mjs?v=focus-batches-20261106';
+import {createClassClient,loginIdentity} from './class-api.mjs?v=focus-batches-20261106';
 const el=id=>document.getElementById(id);
 const storageKey='rw-cloud-session-v2:'+backendConfig.environment;
 if(backendConfig.environment==='nnooeadfgsvbddrjwyan'&&!localStorage.getItem(storageKey)&&localStorage.getItem('rw-cloud-session-v1')){localStorage.setItem(storageKey,localStorage.getItem('rw-cloud-session-v1'));localStorage.removeItem('rw-cloud-session-v1')}
@@ -28,8 +28,8 @@ async function loadRoom(){
  if(!member)throw Error('此账号尚未加入班级，请联系老师。');
  if(member.role==='student'&&!member.password_changed){el('login').hidden=true;el('welcome').hidden=true;el('change').hidden=false;el('room').hidden=true;el('msg').textContent='';return}
  dataClient=createDataClient(api,me.id);
- if(member.role==='teacher'){const {teacher}=await import('./teacher.mjs?v=performance-20261106');const signout=el('logout');await teacher(dataClient,()=>signout.click(),el('enroll'));return}
- const {student}=await import('./student.mjs?v=performance-20261106');const signout=el('logout');await student(dataClient,me,member,basic,()=>signout.click());
+ if(member.role==='teacher'){const {teacher}=await import('./teacher.mjs?v=focus-batches-20261106');const signout=el('logout');await teacher(dataClient,()=>signout.click(),el('enroll'));return}
+ const {student}=await import('./student.mjs?v=focus-batches-20261106');const signout=el('logout');await student(dataClient,me,member,basic,()=>signout.click());
 }
 el('login').onsubmit=guard(async e=>{token='';const data=Object.fromEntries(new FormData(e.target));data.email=loginIdentity(data.email);const session=await api('/auth/v1/token?grant_type=password','POST',data);remember(session);e.target.reset();await loadRoom()});
 el('publish').onsubmit=guard(async e=>{const f=new FormData(e.target),words=f.get('words').trim().split(/\r?\n/).map(line=>{const [en,zh]=line.trim().split(/\t+/);if(!en||!zh)throw Error('请从表格复制英文和释义两列。');return {en,zh}});await api('/rest/v1/rw_tasks','POST',{title:f.get('title').trim(),words});e.target.reset();await loadRoom();el('msg').textContent='任务已发布'});
