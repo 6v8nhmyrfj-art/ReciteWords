@@ -31,3 +31,16 @@ export function choices(w,pool,shuffle){
  }
  return shuffle(result)
 }
+
+// Parts of speech match the sense used in the foundation example.
+const foundationPOS={
+ pull:'v.',wheel:'n.',remember:'v.',practice:'v.',balloon:'n.',decide:'v.',
+ prepare:'v.',describe:'v.',path:'n.',journey:'n.',improve:'v.',discover:'v.',
+ although:'conj.',depend:'v.',develop:'v.',central:'adj.',knowledge:'n.',
+ international:'adj.',attach:'v.',technique:'n.'
+};
+export function singleWord(w){return /^[a-z]+(?:['’-][a-z]+)*$/i.test(String(w.en||'').trim())}
+export function partOfSpeech(w){
+ if(!singleWord(w))return '';
+ return String(w.pos||'').trim()||String(w.zh||'').match(/^(?:n|v|vi|vt|adj|adv|prep|conj|pron|num|art|det|aux|int)\./i)?.[0]||foundationPOS[norm(w.en)]||'词性待补充'
+}
