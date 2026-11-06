@@ -21,7 +21,7 @@ attach|Please attach a photo to your email.|请在邮件中附上一张照片。
 technique|Our coach taught us a new swimming technique.|教练教了我们一种新的游泳技巧。`.split('\n');
 export const contexts=new Map(lines.map((line,rank)=>{const [word,en,zh]=line.split('|');return [word,{en,zh,rank}]}));
 export const norm=s=>String(s??'').trim().toLowerCase().replace(/\s+/g,' ');
-export function example(w){return w.example&&w.translation?{en:w.example,zh:w.translation}:contexts.get(norm(w.en))}
+export function example(w){return w.example?{en:w.example,zh:w.translation||w.zh}:contexts.get(norm(w.en))||(!singleWord(w)?{en:w.en,zh:w.zh}:undefined)}
 export function choices(w,pool,shuffle){
  const meanings=s=>s.split(/[;；、]/).map(norm);
  const seen=new Set(meanings(w.zh)),keys=new Set([norm(w.en)]),result=[w];
