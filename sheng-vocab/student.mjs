@@ -1,9 +1,9 @@
-import {assessment,masteryBooks} from './mastery.mjs?v=mastery-20261106';
-import {shelf} from './student-shelf.mjs?v=mastery-20261106';
+import {assessment,masteryBooks} from './mastery.mjs?v=compact-books-20261106';
+import {shelf} from './student-shelf.mjs?v=compact-books-20261106';
 import {groupStudy} from './group-study.mjs?v=334-five-20261106';
 import {speak,audible,quiet} from './reading-audio.mjs';
 import {example,choices,norm,partOfSpeech} from './word-context.mjs?v=books-periods-20261106';
-import {profile} from './student-tools.mjs?v=mastery-20261106';
+import {profile} from './student-tools.mjs?v=compact-books-20261106';
 export async function student(api,me,member,basic,logout){
 const link=document.createElement('link');link.rel='stylesheet';link.href='./student.css';document.head.append(link);
 const E=(tag,text,cls)=>{const e=document.createElement(tag);if(text!=null)e.textContent=text;if(cls)e.className=cls;return e};
@@ -95,3 +95,4 @@ if((mode==='self'||mode==='task')&&!known.some(x=>x.word===norm(w.en)))card.appe
 draw()}
 try{await home(0)}catch(e){msg.textContent=e.message;app.append(button('重新加载',()=>home(tab)))}
 }
+
