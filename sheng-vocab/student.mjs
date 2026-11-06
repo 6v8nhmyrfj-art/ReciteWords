@@ -1,3 +1,4 @@
+import {groupStudy} from './group-study.mjs';
 import {speak,audible,quiet} from './reading-audio.mjs';
 import {example,choices,norm,partOfSpeech} from './word-context.mjs';
 import {assessment,profile} from './student-tools.mjs';
@@ -26,8 +27,10 @@ function feedback(b,ok){
  if(!ok&&!matchMedia('(prefers-reduced-motion: reduce)').matches)b.animate?.([{transform:'translateX(0)'},{transform:'translateX(-5px)'},{transform:'translateX(5px)'},{transform:'translateX(0)'}],{duration:260});
 }
 function mix(items){const a=[...items];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
-function start(t,mode){if(day()!==loadedDay)return home(tab);const stamp=++version,key='rw-study:'+me.id+':'+(t.id||'basic');let list=t.words.map((_,i)=>i);if(mode==='quiz')return assessment({t,basic,app,E,button,mix,api,active:()=>stamp===version,back:()=>home(tab)});if(mode==='task')list=pending(t);if(mode==='self'){const n=Number(localStorage.getItem(key))||0;let queue;try{queue=JSON.parse(localStorage.getItem(key+':queue'))}catch{}if(Array.isArray(queue)&&queue.length&&queue.every(x=>Number.isInteger(x)&&x>=0&&x<t.words.length))list=queue;else if(n>0&&n<list.length)list=list.slice(n)}
-if(mode==='self')list=list.filter(k=>!known.some(x=>x.word===norm(t.words[k].en)&&x.state!=='relearn'));
+function start(t,mode,groupConfig){if(day()!==loadedDay)return home(tab);const stamp=groupConfig?.stamp??++version,key='rw-study:'+me.id+':'+(t.id||'basic');let list=t.words.map((_,i)=>i);if(mode==='quiz')return assessment({t,basic,app,E,button,mix,api,active:()=>stamp===version,back:()=>home(tab)});if(!groupConfig&&(mode==='task'||mode==='self'))return groupStudy({t,basic,mode,api,me,app,E,button,mix,active:()=>stamp===version,back:()=>home(tab),prepareChime,feedback,learn:(book,config)=>start(book,mode,{...config,stamp})});
+if(mode==='task'&&!groupConfig)list=pending(t);if(mode==='self'&&!groupConfig){const n=Number(localStorage.getItem(key))||0;let queue;try{queue=JSON.parse(localStorage.getItem(key+':queue'))}catch{}if(Array.isArray(queue)&&queue.length&&queue.every(x=>Number.isInteger(x)&&x>=0&&x<t.words.length))list=queue;else if(n>0&&n<list.length)list=list.slice(n)}
+if(groupConfig)list=[...groupConfig.list];
+if(mode==='self'&&!groupConfig)list=list.filter(k=>!known.some(x=>x.word===norm(t.words[k].en)&&x.state!=='relearn'));
 const total=list.length;let correct=0,tries=0,skipped=0;
 const check=known.find(x=>x.state!=='relearn'&&Date.parse(x.due_at)<=Date.now());
 if(check && mode!=='relearn' && mode!=='quiz'){
@@ -44,7 +47,7 @@ if(check && mode!=='relearn' && mode!=='quiz'){
  },'option'));return
 }
 
-function draw(){if(stamp!==version)return;quiet();app.replaceChildren(button('‹ '+tabs[tab],()=>home(tab),'back'),E('h1',t.title));const card=E('section',null,'card');app.append(card);if(!list.length){if(mode==='self'){localStorage.removeItem(key);localStorage.removeItem(key+':queue')}card.append(E('h2',mode==='task'&&!skipped?'今日任务已打卡':skipped?'本轮学习结束':'本轮完成'),E('p','作答 '+tries+' 次 · 答对 '+correct+' 次'+(skipped?' · 跳过 '+skipped+' 词，未计打卡':'')),button('返回'+tabs[tab],()=>home(tab),'primary'));return}
+function draw(){if(stamp!==version)return;quiet();app.replaceChildren(button('‹ '+tabs[tab],()=>home(tab),'back'),E('h1',t.title));const card=E('section',null,'card');app.append(card);if(!list.length){if(groupConfig)return groupConfig.done();if(mode==='self'){localStorage.removeItem(key);localStorage.removeItem(key+':queue')}card.append(E('h2',mode==='task'&&!skipped?'今日任务已打卡':skipped?'本轮学习结束':'本轮完成'),E('p','作答 '+tries+' 次 · 答对 '+correct+' 次'+(skipped?' · 跳过 '+skipped+' 词，未计打卡':'')),button('返回'+tabs[tab],()=>home(tab),'primary'));return}
 const index=list[0],w=t.words[index],context=example(w)||example(tasks.flatMap(x=>x.words).find(x=>norm(x.en)===norm(w.en)&&example(x))||w);
 card.append(E('small','第 '+(total-list.length+1)+' / '+total+' 词'),audible(w.en,'word'),E('small',partOfSpeech({...tasks.flatMap(t=>t.words).find(x=>norm(x.en)===norm(w.en)),...w})));speak([w.en]);
 const supplied=context?.en;
@@ -63,12 +66,12 @@ for(const choice of options){
   busy=true;pendingChoice??=choice;requestId??=crypto.randomUUID();
   const buttons=[...card.querySelectorAll('.option')];buttons.forEach(b=>b.disabled=true);
   try{
-   const ok=await api('/rest/v1/rpc/rw_practice','POST',{p_id:requestId,p_mode:mode==='relearn'?'review':mode,p_task:t.id||null,p_index:index,p_word:norm(w.en),p_choice:pendingChoice.en});
+   const ok=await api('/rest/v1/rpc/rw_practice','POST',{p_id:requestId,p_mode:groupConfig?'self':mode==='relearn'?'review':mode,p_task:groupConfig?groupConfig.refs[index].task:t.id||null,p_index:groupConfig?groupConfig.refs[index].index:index,p_word:norm(w.en),p_choice:pendingChoice.en});
    if(stamp!==version)return;
    feedback(option,ok);tries++;requestId=null;pendingChoice=null;
    if(!ok){card.querySelector('button.back')?.remove();hint.textContent=(sentence===supplied&&context?.zh?context.zh+' ':'')+w.en+' 的意思是「'+w.zh+'」。再选一次。';buttons.forEach(b=>b.disabled=false);return}
-   correct++;list.shift();
-   if(mode==='self'){localStorage.setItem(key+':queue',JSON.stringify(list));localStorage.setItem(key,String(list[0]??0))}
+   correct++;list.shift();groupConfig?.update(list);
+   if(mode==='self'&&!groupConfig){localStorage.setItem(key+':queue',JSON.stringify(list));localStorage.setItem(key,String(list[0]??0))}
    await new Promise(resolve=>setTimeout(resolve,420));draw();
   }catch(error){hint.textContent='保存失败，请点刚才的选项重试。';throw error}
   finally{busy=false}
@@ -77,9 +80,9 @@ for(const choice of options){
 card.append(hint);
 if((mode==='self'||mode==='task')&&!known.some(x=>x.word===norm(w.en)))card.append(button('斩 · 这个词我很熟',async()=>{
  if(busy||pendingChoice)return;busy=true;
- try{await api('/rest/v1/rpc/rw_skip_familiar','POST',{p_task:t.id||null,p_index:index,p_word:norm(w.en),p_meaning:w.zh});
- if(stamp!==version)return;known.push({word:norm(w.en),state:'pending'});list.shift();skipped++;
- if(mode==='self')localStorage.setItem(key+':queue',JSON.stringify(list));
+ try{await api('/rest/v1/rpc/rw_skip_familiar','POST',{p_task:groupConfig?groupConfig.refs[index].task:t.id||null,p_index:groupConfig?groupConfig.refs[index].index:index,p_word:norm(w.en),p_meaning:w.zh});
+ if(stamp!==version)return;known.push({word:norm(w.en),state:'pending'});list.shift();skipped++;groupConfig?.update(list);
+ if(mode==='self'&&!groupConfig)localStorage.setItem(key+':queue',JSON.stringify(list));
  draw();msg.textContent='已安排熟词抽查，本次跳过不计答对。'
  }finally{busy=false}
 },'back'))
