@@ -1,4 +1,4 @@
-export {assessment} from './mastery.mjs?v=compact-books-20261106';
+export {assessment} from './mastery.mjs?v=book-details-20261106';
 import {audible,quiet,speak} from './reading-audio.mjs';
 import {contexts,example,choices,norm,partOfSpeech} from './word-context.mjs?v=books-periods-20261106';
 
