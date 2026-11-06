@@ -1,8 +1,8 @@
 import {shelf} from './student-shelf.mjs?v=books-periods-20261106';
-import {groupStudy} from './group-study.mjs?v=feedback-20261106';
+import {groupStudy} from './group-study.mjs?v=334-five-20261106';
 import {speak,audible,quiet} from './reading-audio.mjs';
 import {example,choices,norm,partOfSpeech} from './word-context.mjs?v=books-periods-20261106';
-import {assessment,profile} from './student-tools.mjs?v=feedback-20261106';
+import {assessment,profile} from './student-tools.mjs?v=334-five-20261106';
 export async function student(api,me,member,basic,logout){
 const link=document.createElement('link');link.rel='stylesheet';link.href='./student.css';document.head.append(link);
 const E=(tag,text,cls)=>{const e=document.createElement(tag);if(text!=null)e.textContent=text;if(cls)e.className=cls;return e};
