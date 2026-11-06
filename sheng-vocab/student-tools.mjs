@@ -59,14 +59,16 @@ export function assessment({t,basic,app,E,button,mix,api,active,back}){
  }
  next()
 }
-function score(rows){return ['阅读','拼写'].map(type=>{const a=rows.filter(x=>x.type===type);return type+' '+a.filter(x=>x.correct).length+' / '+a.length}).join('　·　')}
+function score(rows){return [...new Set(rows.map(x=>x.type))].map(type=>{const a=rows.filter(x=>x.type===type);return type+' '+a.filter(x=>x.correct).length+' / '+a.length}).join('　·　')}
 export async function profile({app,E,button,row,api,me,member,summary,tasks,due,logout,active,review}){
  const who=encodeURIComponent(me.id);
- const [trend,recent,tests]=await Promise.all([
+ const [trend,recent,bookTests,groupTests]=await Promise.all([
   api('/rest/v1/rpc/rw_vocabulary_trend','POST',{}),
   api('/rest/v1/rw_answers?student=eq.'+who+'&select=word,correct,at&order=at.desc&limit=30'),
-  api('/rest/v1/rw_book_tests?select=title,answers,sentence,at&order=at.desc&limit=30')
+  api('/rest/v1/rw_book_tests?select=title,answers,sentence,at&order=at.desc&limit=30'),
+  api('/rest/v1/rw_group_tests?select=title,answers,correct,at&order=at.desc&limit=30')
  ]);
+ const tests=[...bookTests,...groupTests.map(t=>({...t,title:t.title+' · 十词组测',answers:t.answers.map(a=>({...a,type:'填空'})),sentence:{response:'',reference:'正确率 '+t.correct*10+'% · '+(t.correct>=9?'已通过':'待重测')}}))];
  if(!active())return;
  const hero=E('section',null,'hero'),history=E('section');
  function chart(n){
