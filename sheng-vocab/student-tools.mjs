@@ -1,4 +1,4 @@
-export {assessment} from './mastery.mjs?v=mastery-20261106';
+export {assessment} from './mastery.mjs?v=compact-books-20261106';
 import {audible,quiet,speak} from './reading-audio.mjs';
 import {contexts,example,choices,norm,partOfSpeech} from './word-context.mjs?v=books-periods-20261106';
 
@@ -79,3 +79,4 @@ export async function profile({app,E,button,row,api,me,member,summary,tasks,due,
  }));
  app.append(hero,history,done,row('到期复习',due.length+' 词',review),button('退出登录',()=>{if(confirm('确认退出当前账号？学习记录已保存在云端。'))logout()}))
 }
+
