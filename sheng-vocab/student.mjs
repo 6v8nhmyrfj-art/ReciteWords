@@ -1,8 +1,9 @@
-import {shelf} from './student-shelf.mjs?v=books-periods-20261106';
+import {assessment,masteryBooks} from './mastery.mjs?v=mastery-20261106';
+import {shelf} from './student-shelf.mjs?v=mastery-20261106';
 import {groupStudy} from './group-study.mjs?v=334-five-20261106';
 import {speak,audible,quiet} from './reading-audio.mjs';
 import {example,choices,norm,partOfSpeech} from './word-context.mjs?v=books-periods-20261106';
-import {assessment,profile} from './student-tools.mjs?v=passed-line-20261106';
+import {profile} from './student-tools.mjs?v=mastery-20261106';
 export async function student(api,me,member,basic,logout){
 const link=document.createElement('link');link.rel='stylesheet';link.href='./student.css';document.head.append(link);
 const E=(tag,text,cls)=>{const e=document.createElement(tag);if(text!=null)e.textContent=text;if(cls)e.className=cls;return e};
@@ -12,14 +13,14 @@ const tabs=['班级任务','自主学习','测单词','我的'];
 function button(text,fn,cls='soft'){const b=E('button',text,cls);b.onclick=async()=>{b.disabled=true;msg.textContent='';try{await fn()}catch(e){msg.textContent=e.message}finally{b.disabled=false}};return b}
 function row(name,detail,fn){const b=button('',fn,'row'),s=E('span');s.append(E('strong',name),E('small',detail));b.append(E('em','Aa'),s,E('b','›'));return b}
 const day=()=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Shanghai'}).format(new Date());
-async function refresh(){loadedDay=day();[tasks,progress,due,summary,known]=await Promise.all([api('/rest/v1/rw_tasks?select=id,title,words&order=created_at.desc'),api('/rest/v1/rw_progress?select=task_id,word_index&learned_on=eq.'+day()),api('/rest/v1/rw_review_cards?select=word,meaning,due_at&due_at=lte.now&order=due_at.asc&limit=1000'),api('/rest/v1/rpc/rw_student_summary','POST',{}),api('/rest/v1/rw_known_checks?select=word,meaning,due_at,state&order=due_at.asc&limit=1000')]);tasks=tasks.filter(t=>t.words.length)}
+async function refresh(){loadedDay=day();[tasks,progress,due,summary,known]=await Promise.all([api('/rest/v1/rw_tasks?select=id,title,words,category&order=created_at.desc'),api('/rest/v1/rw_progress?select=task_id,word_index&learned_on=eq.'+day()),api('/rest/v1/rw_review_cards?select=word,meaning,due_at&due_at=lte.now&order=due_at.asc&limit=1000'),api('/rest/v1/rpc/rw_student_summary','POST',{}),api('/rest/v1/rw_known_checks?select=word,meaning,due_at,state&order=due_at.asc&limit=1000')]);tasks=tasks.filter(t=>t.words.length)}
 const pending=t=>t.words.map((_,i)=>i).filter(i=>!progress.some(r=>r.task_id===t.id&&r.word_index===i));
 async function home(i){quiet();const stamp=++version;tab=i;app.replaceChildren(E('h1',tabs[i]));nav.replaceChildren(...tabs.map((label,k)=>{const b=button('',()=>home(k),k===i?'on':'');b.append(E('span',['⌂','▤','✎','○'][k]),E('small',label));return b}));await refresh();if(stamp!==version)return;
 if(i===0){const t=tasks.find(t=>pending(t).length)||tasks[0],hero=E('section',null,'hero');if(t){const count=t.words.length-pending(t).length,bar=E('span',null,'bar'),fill=E('i');fill.style.width=(100*count/t.words.length)+'%';bar.append(fill);hero.append(E('small',(summary.cohort||'班级')+' · 今日任务'),E('h2',t.title),bar,E('small','已学 '+count+' / '+t.words.length+' 词'),E('br'),button(count===t.words.length?'复习本组':'继续学习　→',()=>start(t,count===t.words.length?'self':'task'),'action'))}else hero.append(E('h2','今天还没有班级任务'),button('去自主学习',()=>home(1),'action'));app.append(hero);
 const grid=E('div',null,'grid');for(const [v,k] of [[summary.today,'今日已学'],[summary.days+' 天','本周打卡'],[summary.accuracy==null?'—':summary.accuracy+'%','本周正确率']]){const d=E('div',null,'metric');d.append(E('b',v),E('small',k));grid.append(d)}app.append(grid);if(t)app.append(row('任务词汇自测',t.title,()=>start(t,'quiz')));for(const other of tasks.filter(x=>x!==t))app.append(row(other.title,'剩余 '+pending(other).length+' 词',()=>start(other,pending(other).length?'task':'self')))}
 if(i===0||i===1){const n=known.filter(x=>x.state!=='relearn'&&Date.parse(x.due_at)<=Date.now()).length;if(n)app.append(row('熟词抽查',n+' 个已斩词到期',()=>start({title:'熟词抽查',words:[]},'check')));app.append(row('到期复习',due.length?due.length+' 词待巩固':'今天的到期词已清',()=>due.length?start({title:'到期复习',words:due.slice(0,20).map(r=>({en:r.word,zh:r.meaning}))},'review'):home(i)))}
 if(i===1)await shelf({api,app,E,button,row,active:()=>stamp===version,start,basic,due,review:()=>start({title:'到期复习',words:due.slice(0,20).map(r=>({en:r.word,zh:r.meaning}))},'review')});
-if(i===2){for(const t of [basic,...tasks])app.append(row(t.title,t.words.length+' 词',()=>start(t,'quiz')))}
+if(i===2)await masteryBooks({api,app,E,button,active:()=>stamp===version,start:t=>start({...t,words:[]},'quiz')});
 if(i===3)await profile({app,E,button,row,api,me,member,summary,tasks,due,logout,active:()=>stamp===version,review:()=>home(1)});}
 let audio;
 function prepareChime(){try{const C=window.AudioContext||window.webkitAudioContext;if(C){audio??=new C();if(audio.state==='suspended')audio.resume().catch(()=>{})}}catch{}}
@@ -30,7 +31,7 @@ function feedback(b,ok){
  if(!ok&&!matchMedia('(prefers-reduced-motion: reduce)').matches)b.animate?.([{transform:'translateX(0)'},{transform:'translateX(-5px)'},{transform:'translateX(5px)'},{transform:'translateX(0)'}],{duration:260});
 }
 function mix(items){const a=[...items];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
-function start(t,mode,groupConfig){if(day()!==loadedDay)return home(tab);const stamp=groupConfig?.stamp??++version,key='rw-study:'+me.id+':'+(t.id||'basic');let list=t.words.map((_,i)=>i);if(mode==='quiz')return assessment({t,basic,app,E,button,mix,api,prepareChime,feedback,active:()=>stamp===version,back:()=>home(tab)});if(!groupConfig&&(mode==='task'||mode==='self'))return groupStudy({t,basic,mode,api,me,app,E,button,mix,active:()=>stamp===version,back:()=>home(tab),prepareChime,feedback,learn:(book,config)=>start(book,mode,{...config,stamp})});
+function start(t,mode,groupConfig){if(day()!==loadedDay)return home(tab);const stamp=groupConfig?.stamp??++version,key='rw-study:'+me.id+':'+(t.id||'basic');let list=t.words.map((_,i)=>i);if(mode==='quiz')return assessment({t,me,basic,app,E,button,mix,api,prepareChime,feedback,active:()=>stamp===version,back:()=>home(tab)});if(!groupConfig&&(mode==='task'||mode==='self'))return groupStudy({t,basic,mode,api,me,app,E,button,mix,active:()=>stamp===version,back:()=>home(tab),prepareChime,feedback,learn:(book,config)=>start(book,mode,{...config,stamp})});
 if(mode==='task'&&!groupConfig)list=pending(t);if(mode==='self'&&!groupConfig){const n=Number(localStorage.getItem(key))||0;let queue;try{queue=JSON.parse(localStorage.getItem(key+':queue'))}catch{}if(Array.isArray(queue)&&queue.length&&queue.every(x=>Number.isInteger(x)&&x>=0&&x<t.words.length))list=queue;else if(n>0&&n<list.length)list=list.slice(n)}
 if(groupConfig)list=[...groupConfig.list];
 if(mode==='self'&&!groupConfig)list=list.filter(k=>!known.some(x=>x.word===norm(t.words[k].en)&&x.state!=='relearn'));
