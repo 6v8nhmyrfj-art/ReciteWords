@@ -15,10 +15,18 @@ export async function masteryBooks({api,app,E,button,active,start}){
   if(!active())return;scroll=window.scrollY;
   const s=b.summary,card=E('section',null,'card');
   app.replaceChildren(button('‹ 返回词书',()=>{list(b.source_key||b.id);window.scrollTo(0,scroll)},'back'),E('h1',b.title));
-  card.append(E('small',modeLabel(b.category)+' · '+({basic:'基础词书',library:'我的词书',task:'班级任务'}[b.kind])),E('h2','覆盖率 '+s.coverage+'%　正确率 '+rate(s)),E('p','覆盖率：已独立测过 '+s.tested+' / '+s.total+' 词。'),E('p','正确率：按每个已测词最近一次独立作答计算，答对 '+s.correct+' / '+s.tested+' 词。未测时显示 —。'),...summaryNodes(s,E),button('开始测试',()=>start(b),'primary'));
- const info=E('details');info.append(E('summary','掌握度怎么算？'),E('p','每次最多 20 词，按老师设置的难度分层随机抽取，从基础到进阶。按各层在词书中的占比估计掌握度；未分级的词随机抽取，长度只用于层内展示顺序。'),E('p','使用每个词最近一次独立作答；答错会下调。至少测 5 词（不足 5 词的书测完全部），并覆盖各难度层才显示估计。它是带例句的词书测评估计，不是全英语词汇量或长期记牢的证明。'),E('p','间隔至少 24 小时再次答对、期间没有答错，才计入延迟复测通过。听音辅助的题保留结果，不纳入独立掌握度。旧版测评保留在「我的」，不混入本次统计。'));
-
-  app.append(card,info);window.scrollTo(0,0);
+  card.style.cssText='padding:18px;text-align:left';
+  const metrics=E('div');metrics.style.cssText='display:grid;gap:0';
+  for(const [label,value,caption] of [['覆盖率',s.coverage+'%',s.tested+' / '+s.total+' 词'],['正确率',rate(s),null],['复测通过',s.delayed+' 词',null]]){
+   const row=E('div'),text=E('span'),number=E('strong',value);
+   row.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 0;border-bottom:1px solid #edf2f8';
+   text.append(E('span',label));if(caption){const sub=E('small',caption);sub.style.cssText='display:block;color:#607a96;margin-top:3px';text.append(sub)}
+   number.style.cssText='font-size:24px;color:#2164ad;white-space:nowrap';row.append(text,number);metrics.append(row);
+  }
+  const info=E('details'),help=E('summary','?');help.setAttribute('aria-label','查看统计说明');help.title='统计说明';help.style.cssText='cursor:pointer;width:32px;min-height:32px;text-align:center;border:1px solid #d7e5f4;border-radius:50%;line-height:30px;list-style:none;color:#526e8a';
+  info.style.cssText='margin:12px 0;padding:0;background:transparent';info.append(help,E('p','覆盖率：已独立测过的词占整本词书的比例。'),E('p','正确率：每个已测词最近一次独立作答中，答对的比例。还未测试显示 —。'),E('p','复测通过：间隔至少 24 小时再次答对、期间未答错的词数。听音辅助题不计入这三项统计。'));
+  const begin=button('开始测试',()=>start(b),'primary');begin.style.cssText='width:100%;margin:8px 0 0;min-height:46px';
+  card.append(metrics,info,begin);app.append(card);window.scrollTo(0,0);
  }
  function list(focusKey){
   if(!active())return;
