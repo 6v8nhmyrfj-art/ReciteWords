@@ -78,11 +78,20 @@ export async function profile({app,E,button,row,api,me,member,summary,tasks,due,
   for(const v of values){const b=E('i');b.title=v.day+' · '+v.total+' 词';b.style.cssText='flex:1;background:#c8e7ff;border-radius:2px;height:'+Math.max(2,100*(v.total-first)/Math.max(1,last-first))+'%';bars.append(b)}
   hero.append(bars,E('small',(values[0]?.day||'')+' 至 '+(values.at(-1)?.day||'')+'　期内净增 '+(last-first)+' 词'),E('br'),button('7 天',()=>chart(7)),button('30 天',()=>chart(30)))
  }
- function records(filter){
+ function records(filter,page=0){
   const items=[...recent.map(a=>({at:a.at,type:'背词',word:a.word,label:a.word+' · '+(a.correct?'答对':'待巩固')})),...tests.map(x=>({at:x.at,type:'测评',label:x.title+' · '+score(x.answers),test:x}))].filter(x=>!filter||x.type===filter).sort((a,b)=>b.at.localeCompare(a.at));
-  history.replaceChildren(E('h2','最近学习'),...['全部','背词','测评'].map((s,i)=>button(s,()=>records(i?s:''))));
-  for(const item of items.slice(0,30)){const d=E('details'),label=E('summary',new Date(item.at).toLocaleDateString('zh-CN')+'　'+item.label);if(item.test){d.append(label,corrections(item.test.answers,E),E('small','你的译文'),item.test.sentence.response?audible(item.test.sentence.response):E('p','已跳过'),audible(item.test.sentence.reference));history.append(d)}else{const line=E('p',new Date(item.at).toLocaleDateString('zh-CN')+' · '+item.label.slice(item.word.length+3));line.append(audible(item.word));history.append(line)}}
-  if(!items.length)history.append(E('p','还没有这类记录'))
+  const pages=Math.max(1,Math.ceil(items.length/10));
+  page=Math.max(0,Math.min(page,pages-1));
+  const controls=E('div'),previous=button('上一页',()=>records(filter,page-1)),next=button('下一页',()=>records(filter,page+1));
+  previous.disabled=page===0;next.disabled=page===pages-1;
+  controls.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px';
+  const pageLabel=E('small','第 '+(page+1)+' / '+pages+' 页');pageLabel.setAttribute('aria-live','polite');
+  controls.append(previous,pageLabel,next);
+  const viewport=E('div');viewport.setAttribute('aria-label','最近学习记录');viewport.setAttribute('role','region');viewport.tabIndex=0;
+  viewport.style.cssText='max-height:min(430px,52dvh);overflow-y:auto;overscroll-behavior:contain;padding:0 4px';
+  history.replaceChildren(controls,E('h2','最近学习'),...['全部','背词','测评'].map((s,i)=>button(s,()=>records(i?s:''))),viewport);
+  for(const item of items.slice(page*10,(page+1)*10)){const d=E('details'),label=E('summary',new Date(item.at).toLocaleDateString('zh-CN')+'　'+item.label);if(item.test){d.append(label,corrections(item.test.answers,E),E('small','你的译文'),item.test.sentence.response?audible(item.test.sentence.response):E('p','已跳过'),audible(item.test.sentence.reference));viewport.append(d)}else{const line=E('p',new Date(item.at).toLocaleDateString('zh-CN')+' · '+item.label.slice(item.word.length+3));line.append(audible(item.word));viewport.append(line)}}
+  if(!items.length)viewport.append(E('p','还没有这类记录'))
  }
  chart(7);records('');
  const done=E('section'),list=E('div');done.append(E('h2','已完成任务'),list);
