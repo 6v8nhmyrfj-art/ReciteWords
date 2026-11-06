@@ -73,7 +73,7 @@ export async function profile({app,E,button,row,api,me,member,summary,tasks,due,
   api('/rest/v1/rw_book_tests?select=title,answers,sentence,at&order=at.desc&limit=30'),
   api('/rest/v1/rw_group_tests?select=title,answers,correct,at&order=at.desc&limit=30')
  ]);
- const tests=[...bookTests,...groupTests.map(t=>({...t,title:t.title+' · 十词组测',answers:t.answers.map(a=>({...a,type:'填空'})),sentence:{response:'',reference:'正确率 '+t.correct*10+'% · '+(t.correct>=9?'已通过':'待重测')}}))];
+ const tests=[...bookTests,...groupTests.map(t=>({...t,title:t.title+' · '+t.answers.length+'题组测',answers:t.answers.map(a=>({...a,type:'填空'})),sentence:{response:'',reference:'正确率 '+Math.round(100*t.correct/t.answers.length)+'% · '+(t.correct/t.answers.length>=0.9?'已通过':'待重测')}}))];
  if(!active())return;
  const hero=E('section',null,'hero'),history=E('section');
  function chart(period){
