@@ -9,9 +9,31 @@ function summaryNodes(s,E){
 }
 export async function masteryBooks({api,app,E,button,active,start}){
  const books=await api('/rest/v1/rpc/rw_mastery_books','POST',{});if(!active())return;
+ const rate=s=>s.tested?Math.round(100*s.correct/s.tested)+'%':'—';
+ let scroll=0;
+ function detail(b){
+  if(!active())return;scroll=window.scrollY;
+  const s=b.summary,card=E('section',null,'card');
+  app.replaceChildren(button('‹ 返回词书',()=>{list(b.source_key||b.id);window.scrollTo(0,scroll)},'back'),E('h1',b.title));
+  card.append(E('small',modeLabel(b.category)+' · '+({basic:'基础词书',library:'我的词书',task:'班级任务'}[b.kind])),E('h2','覆盖率 '+s.coverage+'%　正确率 '+rate(s)),E('p','覆盖率：已独立测过 '+s.tested+' / '+s.total+' 词。'),E('p','正确率：按每个已测词最近一次独立作答计算，答对 '+s.correct+' / '+s.tested+' 词。未测时显示 —。'),...summaryNodes(s,E),button('开始测试',()=>start(b),'primary'));
  const info=E('details');info.append(E('summary','掌握度怎么算？'),E('p','每次最多 20 词，按老师设置的难度分层随机抽取，从基础到进阶。按各层在词书中的占比估计掌握度；未分级的词随机抽取，长度只用于层内展示顺序。'),E('p','使用每个词最近一次独立作答；答错会下调。至少测 5 词（不足 5 词的书测完全部），并覆盖各难度层才显示估计。它是带例句的词书测评估计，不是全英语词汇量或长期记牢的证明。'),E('p','间隔至少 24 小时再次答对、期间没有答错，才计入延迟复测通过。听音辅助的题保留结果，不纳入独立掌握度。旧版测评保留在「我的」，不混入本次统计。'));
- app.append(info,E('p','词书由老师制作；可在「自主学习 → 添加单词书」中选入。'));
- for(const b of books){const card=E('section',null,'card');card.append(E('small',modeLabel(b.category)+' · '+({basic:'基础词书',library:'我的词书',task:'班级任务'}[b.kind])),E('h2',b.title),...summaryNodes(b.summary,E),button(b.summary.tested?'继续测评 / 复测':'开始测评',()=>start(b),'primary'));app.append(card)}
+
+  app.append(card,info);window.scrollTo(0,0);
+ }
+ function list(focusKey){
+  if(!active())return;
+  app.replaceChildren(E('h1','测单词'));
+  for(const b of books){
+   const s=b.summary,card=button('',()=>detail(b),'book-compact'),name=E('strong',b.title),metrics=E('span');
+   card.style.cssText='display:block;width:100%;margin:8px 0;padding:14px 16px;text-align:left;background:#fff;border:1px solid #d7e5f4;border-radius:14px;min-height:88px';
+   name.style.cssText='display:block;font-size:16px;line-height:1.4;overflow-wrap:anywhere';
+   metrics.style.cssText='display:flex;flex-wrap:wrap;gap:8px 24px;margin-top:8px;font-size:13px;color:#526e8a';
+   metrics.append(E('span','覆盖率 '+s.coverage+'%'),E('span','正确率 '+rate(s)));card.append(name,metrics);app.append(card);
+   if(focusKey&&(b.source_key||b.id)===focusKey)card.focus({preventScroll:true});
+  }
+  if(!books.length)app.append(E('p','暂无词书，请先在自主学习中添加老师的单词书。'));
+ }
+ list();
 }
 export async function assessment({t,api,app,E,button,active,back,prepareChime,feedback,me}){
  quiet();app.replaceChildren(E('p','正在准备测评…'));
@@ -55,3 +77,4 @@ export async function assessment({t,api,app,E,button,active,back,prepareChime,fe
  }
  draw();
 }
+
