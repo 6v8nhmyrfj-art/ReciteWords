@@ -1,5 +1,5 @@
 import {audible,quiet,speak} from './reading-audio.mjs';
-import {contexts,example,choices,norm,partOfSpeech} from './word-context.mjs';
+import {contexts,example,choices,norm,partOfSpeech} from './word-context.mjs?v=books-periods-20261106';
 
 function corrections(rows,E){
  const box=E('div'),missed=rows.filter(a=>!a.correct);
@@ -63,7 +63,7 @@ function score(rows){return [...new Set(rows.map(x=>x.type))].map(type=>{const a
 export async function profile({app,E,button,row,api,me,member,summary,tasks,due,logout,active,review}){
  const who=encodeURIComponent(me.id);
  const [trend,recent,bookTests,groupTests]=await Promise.all([
-  api('/rest/v1/rpc/rw_vocabulary_trend','POST',{}),
+  api('/rest/v1/rpc/rw_vocabulary_periods','POST',{}),
   api('/rest/v1/rw_answers?student=eq.'+who+'&select=word,correct,at&order=at.desc&limit=30'),
   api('/rest/v1/rw_book_tests?select=title,answers,sentence,at&order=at.desc&limit=30'),
   api('/rest/v1/rw_group_tests?select=title,answers,correct,at&order=at.desc&limit=30')
@@ -71,12 +71,16 @@ export async function profile({app,E,button,row,api,me,member,summary,tasks,due,
  const tests=[...bookTests,...groupTests.map(t=>({...t,title:t.title+' · 十词组测',answers:t.answers.map(a=>({...a,type:'填空'})),sentence:{response:'',reference:'正确率 '+t.correct*10+'% · '+(t.correct>=9?'已通过':'待重测')}}))];
  if(!active())return;
  const hero=E('section',null,'hero'),history=E('section');
- function chart(n){
-  const values=trend.slice(-n),last=Number(values.at(-1)?.total||0),first=Number(values[0]?.total||0);
-  hero.replaceChildren(E('small',member.display_name+' · '+(summary.cohort||'学习档案')),E('h2','累计答对 '+last+' 词'),E('small','按单词去重 · 近 '+n+' 天趋势'));
-  const bars=E('div');bars.style.cssText='height:48px;display:flex;align-items:end;gap:2px;margin:10px 0';
-  for(const v of values){const b=E('i');b.title=v.day+' · '+v.total+' 词';b.style.cssText='flex:1;background:#c8e7ff;border-radius:2px;height:'+Math.max(2,100*(v.total-first)/Math.max(1,last-first))+'%';bars.append(b)}
-  hero.append(bars,E('small',(values[0]?.day||'')+' 至 '+(values.at(-1)?.day||'')+'　期内净增 '+(last-first)+' 词'),E('br'),button('7 天',()=>chart(7)),button('30 天',()=>chart(30)))
+ function chart(period){
+  const labels={week:'本周',month:'本月',year:'本年'},data=trend[period],values=data.points;
+  hero.replaceChildren(E('small',member.display_name+' · '+(summary.cohort||'学习档案')),E('h2',labels[period]+'答对 '+data.total+' 词'));
+  const controls=E('div');controls.style.cssText='display:flex;gap:8px;margin:10px 0';
+  for(const [key,label] of Object.entries(labels)){const toggle=button(label,()=>chart(key));toggle.setAttribute('aria-pressed',String(key===period));if(key===period)toggle.style.cssText='background:white;color:#174e90;font-weight:bold';controls.append(toggle)}
+  hero.append(controls,E('small','周期内按单词去重 · 重复答对只计一次'));
+  const bars=E('div');bars.setAttribute('role','img');bars.setAttribute('aria-label',labels[period]+'累计答对趋势，共 '+data.total+' 词');
+  bars.style.cssText='height:64px;display:flex;align-items:end;gap:3px;margin:12px 0';
+  for(const v of values){const b=E('i');b.title=(period==='year'?v.day.slice(0,7):v.day)+' · 累计 '+v.total+' 词';b.style.cssText='flex:1;background:#c8e7ff;border-radius:2px;height:'+(100*v.total/Math.max(1,data.total))+'%';bars.append(b)}
+  hero.append(bars,E('small',data.start+' 至 '+data.end),E('br'),E('small',period==='year'?'按月显示本年累计答对词数':'按天显示'+labels[period]+'累计答对词数'))
  }
  function records(filter,page=0){
   const items=[...recent.map(a=>({at:a.at,type:'背词',word:a.word,label:a.word+' · '+(a.correct?'答对':'待巩固')})),...tests.map(x=>({at:x.at,type:'测评',label:x.title+' · '+score(x.answers),test:x}))].filter(x=>!filter||x.type===filter).sort((a,b)=>b.at.localeCompare(a.at));
@@ -93,7 +97,7 @@ export async function profile({app,E,button,row,api,me,member,summary,tasks,due,
   for(const item of items.slice(page*10,(page+1)*10)){const d=E('details'),label=E('summary',new Date(item.at).toLocaleDateString('zh-CN')+'　'+item.label);if(item.test){d.append(label,corrections(item.test.answers,E),E('small','你的译文'),item.test.sentence.response?audible(item.test.sentence.response):E('p','已跳过'),audible(item.test.sentence.reference));viewport.append(d)}else{const line=E('p',new Date(item.at).toLocaleDateString('zh-CN')+' · '+item.label.slice(item.word.length+3));line.append(audible(item.word));viewport.append(line)}}
   if(!items.length)viewport.append(E('p','还没有这类记录'))
  }
- chart(7);records('');
+ chart('week');records('');
  const done=E('section'),list=E('div');done.append(E('h2','已完成任务'),list);
  list.append(button('查看打卡记录',async()=>{
   const groups=new Map();let offset=0;
