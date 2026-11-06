@@ -1,10 +1,10 @@
 import {audible,quiet,speak} from './reading-audio.mjs';
-import {contexts,example,choices,norm} from './word-context.mjs';
+import {contexts,example,choices,norm,partOfSpeech} from './word-context.mjs';
 
 function corrections(rows,E){
  const box=E('div'),missed=rows.filter(a=>!a.correct);
  box.append(E('p',missed.length?'需复习':'本轮词汇全对'));
- for(const a of missed)box.append(audible(a.word));
+ for(const a of missed)box.append(audible(a.word),E('small',partOfSpeech({en:a.word,zh:a.meaning,pos:a.pos})));
  return box
 }
 export function assessment({t,basic,app,E,button,mix,api,active,back}){
@@ -14,14 +14,14 @@ export function assessment({t,basic,app,E,button,mix,api,active,back}){
  const answers=[],id=crypto.randomUUID(),card=E('section',null,'card');
  app.replaceChildren(button('‹ 返回',back,'back'),E('h1',t.title+' · 测评'),card);
  function record(w,type,value){
-  answers.push({word:w.en,meaning:w.zh,type,correct:norm(value)===norm(w.en)});
+  answers.push({word:w.en,meaning:w.zh,pos:partOfSpeech(w),type,correct:norm(value)===norm(w.en)});
   next()
  }
  function next(){quiet();
   const i=answers.length;
   if(i===words.length){translation();return}
   const w=words[i],read=i%2===0,bar=E('progress');bar.max=words.length;bar.value=i;
-  card.replaceChildren(E('small','第 '+(i+1)+' / '+words.length+' 词'),E('br'),bar,E('p',read?'阅读 · 选择中文意思':'写作 · 拼出本书对应的英文'),audible(read?w.en:w.zh,'word',read?'en-US':'zh-CN'));
+  card.replaceChildren(E('small','第 '+(i+1)+' / '+words.length+' 词'),E('br'),bar,E('p',read?'阅读 · 选择中文意思':'写作 · 拼出本书对应的英文'),audible(read?w.en:w.zh,'word',read?'en-US':'zh-CN'),E('small',partOfSpeech(w)));
   speak([read?w.en:w.zh],read?'en-US':'zh-CN');
   if(read){for(const opt of choices(w,[...unique,...basic.words],mix))card.append(button(opt.zh,()=>record(w,'阅读',opt.en),'option'))}
   else{
