@@ -7,26 +7,31 @@ function corrections(rows,E){
  for(const a of missed)box.append(audible(a.word),E('small',partOfSpeech({en:a.word,zh:a.meaning,pos:a.pos})));
  return box
 }
-export function assessment({t,basic,app,E,button,mix,api,active,back}){
+export function assessment({t,basic,app,E,button,mix,api,active,back,prepareChime,feedback}){
  const unique=[...new Map(t.words.map(w=>[norm(w.en),w])).values()];
  const rank=w=>Number.isFinite(w.difficulty)?w.difficulty:contexts.get(norm(w.en))?.rank??100;
  const words=mix(unique).slice(0,20).sort((a,b)=>rank(a)-rank(b));
  const answers=[],id=crypto.randomUUID(),card=E('section',null,'card');
  app.replaceChildren(button('‹ 返回',back,'back'),E('h1',t.title+' · 测评'),card);
- function record(w,type,value){
+ let answering=false;
+ async function record(w,type,value,target){
+  if(answering||!active())return;answering=true;prepareChime();
+  card.querySelectorAll('button,input').forEach(x=>x.disabled=true);
+  if(target)feedback(target,norm(value)===norm(w.en));
   answers.push({word:w.en,meaning:w.zh,pos:partOfSpeech(w),type,correct:norm(value)===norm(w.en)});
-  next()
+  await new Promise(resolve=>setTimeout(resolve,520));
+  if(active()){answering=false;next()}
  }
- function next(){quiet();
+ function next(){if(!active())return;quiet();
   const i=answers.length;
   if(i===words.length){translation();return}
   const w=words[i],read=i%2===0,bar=E('progress');bar.max=words.length;bar.value=i;
   card.replaceChildren(E('small','第 '+(i+1)+' / '+words.length+' 词'),E('br'),bar,E('p',read?'阅读 · 选择中文意思':'写作 · 拼出本书对应的英文'),audible(read?w.en:w.zh,'word',read?'en-US':'zh-CN'),E('small',partOfSpeech(w)));
   speak([read?w.en:w.zh],read?'en-US':'zh-CN');
-  if(read){for(const opt of choices(w,[...unique,...basic.words],mix))card.append(button(opt.zh,()=>record(w,'阅读',opt.en),'option'))}
+  if(read){for(const opt of choices(w,[...unique,...basic.words],mix)){const option=button(opt.zh,()=>record(w,'阅读',opt.en,option),'option');card.append(option)}}
   else{
    const form=E('form'),input=E('input'),submit=E('button','提交','primary');input.required=true;input.placeholder='输入英文';input.autocomplete='off';input.autocapitalize='none';input.spellcheck=false;
-   form.append(input,submit);form.onsubmit=e=>{e.preventDefault();record(w,'拼写',input.value)};card.append(form)
+   form.append(input,submit);form.onsubmit=e=>{e.preventDefault();record(w,'拼写',input.value,input)};card.append(form)
   }
   card.append(button('不会，跳过',()=>record(w,read?'阅读':'拼写',''),'back'))
  }
