@@ -1,7 +1,7 @@
 import {groupStudy} from './group-study.mjs';
 import {speak,audible,quiet} from './reading-audio.mjs';
 import {example,choices,norm,partOfSpeech} from './word-context.mjs';
-import {assessment,profile} from './student-tools.mjs';
+import {assessment,profile} from './student-tools.mjs?v=history10-20261106';
 export async function student(api,me,member,basic,logout){
 const link=document.createElement('link');link.rel='stylesheet';link.href='./student.css';document.head.append(link);
 const E=(tag,text,cls)=>{const e=document.createElement(tag);if(text!=null)e.textContent=text;if(cls)e.className=cls;return e};
