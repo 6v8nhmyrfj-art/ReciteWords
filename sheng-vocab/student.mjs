@@ -1,7 +1,8 @@
-import {groupStudy} from './group-study.mjs';
+import {shelf} from './student-shelf.mjs?v=books-periods-20261106';
+import {groupStudy} from './group-study.mjs?v=books-periods-20261106';
 import {speak,audible,quiet} from './reading-audio.mjs';
-import {example,choices,norm,partOfSpeech} from './word-context.mjs';
-import {assessment,profile} from './student-tools.mjs?v=history10-20261106';
+import {example,choices,norm,partOfSpeech} from './word-context.mjs?v=books-periods-20261106';
+import {assessment,profile} from './student-tools.mjs?v=books-periods-20261106';
 export async function student(api,me,member,basic,logout){
 const link=document.createElement('link');link.rel='stylesheet';link.href='./student.css';document.head.append(link);
 const E=(tag,text,cls)=>{const e=document.createElement(tag);if(text!=null)e.textContent=text;if(cls)e.className=cls;return e};
@@ -17,7 +18,8 @@ async function home(i){quiet();const stamp=++version;tab=i;app.replaceChildren(E
 if(i===0){const t=tasks.find(t=>pending(t).length)||tasks[0],hero=E('section',null,'hero');if(t){const count=t.words.length-pending(t).length,bar=E('span',null,'bar'),fill=E('i');fill.style.width=(100*count/t.words.length)+'%';bar.append(fill);hero.append(E('small',(summary.cohort||'班级')+' · 今日任务'),E('h2',t.title),bar,E('small','已学 '+count+' / '+t.words.length+' 词'),E('br'),button(count===t.words.length?'复习本组':'继续学习　→',()=>start(t,count===t.words.length?'self':'task'),'action'))}else hero.append(E('h2','今天还没有班级任务'),button('去自主学习',()=>home(1),'action'));app.append(hero);
 const grid=E('div',null,'grid');for(const [v,k] of [[summary.today,'今日已学'],[summary.days+' 天','本周打卡'],[summary.accuracy==null?'—':summary.accuracy+'%','本周正确率']]){const d=E('div',null,'metric');d.append(E('b',v),E('small',k));grid.append(d)}app.append(grid);if(t)app.append(row('任务词汇自测',t.title,()=>start(t,'quiz')));for(const other of tasks.filter(x=>x!==t))app.append(row(other.title,'剩余 '+pending(other).length+' 词',()=>start(other,pending(other).length?'task':'self')))}
 if(i===0||i===1){const n=known.filter(x=>x.state!=='relearn'&&Date.parse(x.due_at)<=Date.now()).length;if(n)app.append(row('熟词抽查',n+' 个已斩词到期',()=>start({title:'熟词抽查',words:[]},'check')));app.append(row('到期复习',due.length?due.length+' 词待巩固':'今天的到期词已清',()=>due.length?start({title:'到期复习',words:due.slice(0,20).map(r=>({en:r.word,zh:r.meaning}))},'review'):home(i)))}
-if(i===1||i===2){for(const t of [basic,...tasks])app.append(row(t.title,t.words.length+' 词',()=>start(t,i===1?'self':'quiz')))}
+if(i===1)await shelf({api,app,E,button,row,active:()=>stamp===version,start,basic,due,review:()=>start({title:'到期复习',words:due.slice(0,20).map(r=>({en:r.word,zh:r.meaning}))},'review')});
+if(i===2){for(const t of [basic,...tasks])app.append(row(t.title,t.words.length+' 词',()=>start(t,'quiz')))}
 if(i===3)await profile({app,E,button,row,api,me,member,summary,tasks,due,logout,active:()=>stamp===version,review:()=>home(1)});}
 let audio;
 function prepareChime(){try{const C=window.AudioContext||window.webkitAudioContext;if(C){audio??=new C();if(audio.state==='suspended')audio.resume().catch(()=>{})}}catch{}}
