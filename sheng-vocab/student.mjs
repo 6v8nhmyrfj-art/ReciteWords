@@ -1,5 +1,5 @@
 import {speak,audible,quiet} from './reading-audio.mjs';
-import {example,choices,norm} from './word-context.mjs';
+import {example,choices,norm,partOfSpeech} from './word-context.mjs';
 import {assessment,profile} from './student-tools.mjs';
 export async function student(api,me,member,basic,logout){
 const link=document.createElement('link');link.rel='stylesheet';link.href='./student.css';document.head.append(link);
@@ -32,7 +32,7 @@ const total=list.length;let correct=0,tries=0,skipped=0;
 const check=known.find(x=>x.state!=='relearn'&&Date.parse(x.due_at)<=Date.now());
 if(check && mode!=='relearn' && mode!=='quiz'){
  const card=E('section',null,'card'),w={en:check.word,zh:check.meaning};app.replaceChildren(E('h1','熟词抽查'),card);
- card.append(E('small','之前斩过的词 · 独立回忆'),audible(w.en,'word'),E('p','选择中文意思'));speak([w.en]);
+ card.append(E('small','之前斩过的词 · 独立回忆'),audible(w.en,'word'),E('small',partOfSpeech(tasks.flatMap(t=>t.words).find(x=>norm(x.en)===norm(w.en))||w)),E('p','选择中文意思'));speak([w.en]);
  let id=crypto.randomUUID(),choice=null,locked=false;
  for(const opt of [...choices(w,[...t.words,...basic.words],mix),{en:'',zh:'想不起来'}])card.append(button(opt.zh,async()=>{
   if(locked)return;locked=true;choice??=opt;
@@ -46,7 +46,7 @@ if(check && mode!=='relearn' && mode!=='quiz'){
 
 function draw(){if(stamp!==version)return;quiet();app.replaceChildren(button('‹ '+tabs[tab],()=>home(tab),'back'),E('h1',t.title));const card=E('section',null,'card');app.append(card);if(!list.length){if(mode==='self'){localStorage.removeItem(key);localStorage.removeItem(key+':queue')}card.append(E('h2',mode==='task'&&!skipped?'今日任务已打卡':skipped?'本轮学习结束':'本轮完成'),E('p','作答 '+tries+' 次 · 答对 '+correct+' 次'+(skipped?' · 跳过 '+skipped+' 词，未计打卡':'')),button('返回'+tabs[tab],()=>home(tab),'primary'));return}
 const index=list[0],w=t.words[index],context=example(w)||example(tasks.flatMap(x=>x.words).find(x=>norm(x.en)===norm(w.en)&&example(x))||w);
-card.append(E('small','第 '+(total-list.length+1)+' / '+total+' 词'),audible(w.en,'word'));speak([w.en]);
+card.append(E('small','第 '+(total-list.length+1)+' / '+total+' 词'),audible(w.en,'word'),E('small',partOfSpeech({...tasks.flatMap(t=>t.words).find(x=>norm(x.en)===norm(w.en)),...w})));speak([w.en]);
 const supplied=context?.en;
 const target=norm(w.en);
 const sentence=supplied&&(' '+norm(supplied).replace(/[^a-z0-9'-]+/g,' ')+' ').includes(' '+target+' ')?supplied:'Can you spell “'+w.en+'”?';
