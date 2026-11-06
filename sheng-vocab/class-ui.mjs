@@ -23,8 +23,8 @@ async function loadRoom(){
  [member]=await api('/rest/v1/rw_members?user_id=eq.'+encodeURIComponent(me.id)+'&select=display_name,role,password_changed');
  if(!member)throw Error('此账号尚未加入班级，请联系老师。');
  if(member.role==='student'&&!member.password_changed){el('login').hidden=true;el('welcome').hidden=true;el('change').hidden=false;el('room').hidden=true;el('msg').textContent='';return}
- if(member.role==='teacher'){const {teacher}=await import('./teacher.mjs?v=compact-books-20261106');const signout=el('logout');await teacher(api,()=>signout.click(),el('enroll'));return}
- const {student}=await import('./student.mjs?v=compact-books-20261106');const signout=el('logout');await student(api,me,member,basic,()=>signout.click());
+ if(member.role==='teacher'){const {teacher}=await import('./teacher.mjs?v=book-details-20261106');const signout=el('logout');await teacher(api,()=>signout.click(),el('enroll'));return}
+ const {student}=await import('./student.mjs?v=book-details-20261106');const signout=el('logout');await student(api,me,member,basic,()=>signout.click());
 }
 el('login').onsubmit=guard(async e=>{token='';const data=Object.fromEntries(new FormData(e.target));data.email=loginIdentity(data.email);const session=await api('/auth/v1/token?grant_type=password','POST',data);remember(session);e.target.reset();await loadRoom()});
 el('publish').onsubmit=guard(async e=>{const f=new FormData(e.target),words=f.get('words').trim().split(/\r?\n/).map(line=>{const [en,zh]=line.trim().split(/\t+/);if(!en||!zh)throw Error('请从表格复制英文和释义两列。');return {en,zh}});await api('/rest/v1/rw_tasks','POST',{title:f.get('title').trim(),words});e.target.reset();await loadRoom();el('msg').textContent='任务已发布'});
