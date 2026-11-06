@@ -1,4 +1,4 @@
-import {partOfSpeech,singleWord} from './word-context.mjs';
+import {parseVocabulary} from './vocabulary-import.mjs?v=books-periods-20261106';
 export async function teacher(api,logout,enroll){
  const css=document.createElement('link');css.rel='stylesheet';css.href='./teacher.css';document.head.append(css);
  const body=document.body,main=document.createElement('main');main.id='teacher-main';body.replaceChildren(main);
@@ -29,12 +29,40 @@ export async function teacher(api,logout,enroll){
  function form(i,title){page(i,title);const f=E('form');v.append(f);return f}
  function field(f,label,tag,opts){const l=E('label',label),n=E(tag);if(opts)for(const [value,name] of opts){const o=E('option',name);o.value=value;n.append(o)}l.append(n);f.append(l);return n}
  function submit(f,action){const b=E('button','保存');b.className='accent';f.append(b);f.onsubmit=async e=>{e.preventDefault();b.disabled=true;try{await action()}catch(e){notice.textContent=e.message}finally{b.disabled=false}}}
- function create(){const f=form(2,'新建词库'),t=field(f,'词库名称','input'),book=field(f,'所属单词书（可选，新书名会自动建书）','input'),w=field(f,'五列依次为英文、释义、英文例句、中文译文、词性，用制表符分隔。单词必填词性（如 n.、v.），短语和句子留空','textarea');t.required=w.required=true;submit(f,async()=>{const words=w.value.trim().split(/\r?\n/).map(line=>{const [en,zh,example,translation,pos]=line.trim().split(/\t| {2,}/).map(s=>s.trim());if(Boolean(example)!==Boolean(translation))throw Error('请同时填写英文例句和中文译文');if(!en||!zh)throw Error('请从表格复制英文和释义两列');const speech=partOfSpeech({en,zh,pos});if(singleWord({en})&&speech==='词性待补充')throw Error(en+' 请在第五列填写词性');return {en:en.trim(),zh,...(speech?{pos:speech}:{}),...(example?{example,translation}:{})}});await api('/rest/v1/rw_libraries','POST',{title:t.value.trim(),book:book.value.trim(),words});await sync();open(2)})}
+ function create(){
+  const f=form(2,'制作词书 / 混合导入'),t=field(f,'词库或单元名称','input'),book=field(f,'所属单词书（可选）','input');
+  const w=field(f,'粘贴表格或文本','textarea');t.required=w.required=true;w.rows=10;
+  w.placeholder='apple\tn.\t苹果\tI eat an apple.\nlook after\t照顾\nHow are you?\t你好吗？';
+  f.append(E('p','单词：英文、词性、中文、英文例句、例句中文（可选）。短语/句子：英文、中文。可直接粘贴 Excel；支持 CSV、TSV、TXT 文件。'));
+  const file=field(f,'选择文本文件','input');file.type='file';file.accept='.csv,.tsv,.txt';
+  const preview=E('section'),save=E('button','预览导入');save.className='accent';f.append(preview,save);
+  let snapshot=null,parsed=null;
+  w.oninput=()=>{snapshot=null;save.textContent='预览导入';preview.replaceChildren()};
+  file.onchange=async()=>{try{if(file.files[0]){if(file.files[0].size>1000000)throw Error('文件应小于 1 MB');w.value=await file.files[0].text();if(w.value.includes('�'))throw Error('请保存为 UTF-8 文本或直接从 Excel 复制');w.oninput()}}catch(e){notice.textContent=e.message}};
+  const template=btn('下载导入模板',()=>{
+   const text='英文\t词性\t中文\t英文例句\t例句中文\napple\tn.\t苹果\tI eat an apple.\t我吃一个苹果。\nlook after\t\t照顾\t\t\nHow are you?\t\t你好吗？\t\t\n';
+   const url=URL.createObjectURL(new Blob(['\uFEFF'+text],{type:'text/tab-separated-values;charset=utf-8'})),a=E('a');a.href=url;a.download='词书混合导入模板.tsv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)
+  });template.type='button';f.insertBefore(template,preview);
+  f.onsubmit=async e=>{
+   e.preventDefault();save.disabled=true;notice.textContent='';
+   try{
+    if(snapshot!==w.value){
+     parsed=parseVocabulary(w.value);preview.replaceChildren(E('h3','识别结果'),E('p',parsed.words.length+' 个条目 · 忽略完全重复 '+parsed.duplicates+' 条'));
+     for(const error of parsed.errors)preview.append(E('p',error));
+     for(const x of parsed.words.slice(0,20))preview.append(E('p',x.en+'　'+(x.pos||'短语 / 句子')+'　'+x.zh),...(x.example?[E('small',x.example)]:[]));
+     if(parsed.words.length>20)preview.append(E('small','预览前 20 条，保存全部 '+parsed.words.length+' 条'));
+     if(parsed.errors.length){save.textContent='修正后重新预览';return}
+     snapshot=w.value;save.textContent='确认导入 '+parsed.words.length+' 个条目';return
+    }
+    await api('/rest/v1/rw_libraries','POST',{title:t.value.trim(),book:book.value.trim(),words:parsed.words});await sync();open(2)
+   }catch(e){notice.textContent=e.message}finally{save.disabled=false}
+  }
+ }
  function publish(id){if(!libs.length){create();notice.textContent='先保存一个词库，再发布任务。';return}const f=form(4,'布置任务'),t=field(f,'任务名称','input'),g=field(f,'布置给','select',[['','全部班级'],...groups.filter(x=>x!=='待分班').map(x=>[x,x])]),l=field(f,'词库','select',libs.map(l=>[l.id,l.title]));if(id)l.value=id;t.required=true;submit(f,async()=>{await api('/rest/v1/rw_tasks','POST',{title:t.value.trim(),cohort:g.value||null,words:libs.find(x=>x.id===l.value).words});await sync();open(4);notice.textContent='已发布'})}
  function open(i){page(i,i?tabs[i]:'');if(!i){const hero=E('section',null,'hero');hero.append(E('h1','教学概览'),btn('＋ 布置任务',()=>publish(),'accent'));v.append(hero,stats([['今日打卡',checked(data.members)+' / '+data.members.length],['本周测验正确率',acc(data.answers)],['累计已学词数',new Set(data.learned.map(r=>r.word)).size]]));const box=E('section'),grid=E('div',null,'grid');box.append(E('h2','我的班级'),grid);for(const g of groups){const ms=members(g),b=btn('',()=>roster(g),'tile');b.append(E('small',ms.length+' 名学生'),E('h3',g),E('div','今日打卡 '+checked(ms)+' / '+ms.length+'　›'));const bar=E('span',null,'bar'),fill=E('i');fill.style.width=(100*checked(ms)/Math.max(ms.length,1))+'%';bar.append(fill);b.insertBefore(bar,b.lastChild);grid.append(b)}v.append(box);const weak=new Map();for(const a of data.answers){const r=weak.get(a.word)||{n:0,hits:0};r.n+=Number(a.n);r.hits+=Number(a.hits);weak.set(a.word,r)}if(weak.size){const details=E('details'),summary=E('summary','本周易错词');details.append(summary);for(const [word,r] of [...weak].filter(([,r])=>r.hits<r.n).sort((a,b)=>a[1].hits/a[1].n-b[1].hits/b[1].n).slice(0,10))details.append(E('p',word+'　答对 '+r.hits+' / '+r.n));v.append(details)}v.append(btn('刷新数据',async()=>{await sync();open(0)}),btn('退出登录',logout));return}
  if(i===1){for(const g of groups)v.append(btn(g+'　'+members(g).length+' 人',()=>roster(g),'line'));v.append(enroll);enroll.hidden=false;return}
  if(i===2){v.append(btn('＋ 新建词库',create,'accent'));for(const l of libs)v.append(btn(l.title+'　'+l.words.length+' 词',()=>library(l),'line'));return}
- if(i===3){const books=[...new Set(libs.map(l=>l.book).filter(Boolean))];if(!books.length)v.append(E('p','建词库时填写书名，即可将多个词库整理为一本书。'));for(const b of books)v.append(btn(b,()=>{page(3,b);for(const l of libs.filter(x=>x.book===b))v.append(btn(l.title,()=>library(l),'line'))},'line'));return}
+ if(i===3){v.append(btn('＋ 制作 / 导入词书',create,'accent'));const books=[...new Set(libs.map(l=>l.book).filter(Boolean))];if(!books.length)v.append(E('p','建词库时填写书名，即可将多个词库整理为一本书。'));for(const b of books)v.append(btn(b,()=>{page(3,b);for(const l of libs.filter(x=>x.book===b))v.append(btn(l.title,()=>library(l),'line'))},'line'));return}
  v.append(btn('＋ 布置任务',()=>publish(),'accent'));for(const t of tasks){const d=E('details');d.append(E('summary',t.title+' · '+(t.cohort||'全部班级')),E('p',t.words.map(w=>w.en).join(' · ')));v.append(d)}}
  try{await sync();open(0)}catch(e){notice.textContent=e.message;v.append(btn('重新加载',()=>location.reload()),btn('退出登录',logout))}
 }
