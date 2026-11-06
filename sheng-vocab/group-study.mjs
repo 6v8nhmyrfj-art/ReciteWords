@@ -53,8 +53,10 @@ export async function groupStudy({t,basic,mode,api,me,app,E,button,mix,active,ba
     if(locked||!active())return;locked=true;prepareChime();
     state.answers.push({task:r.task,index:r.index,choice:option.w.en,groupIndex:index});
     save();
-    // One answer per test question. Feedback is shown after submission.
-    quiz()
+    card.querySelectorAll('button').forEach(x=>x.disabled=true);
+    feedback(b,norm(option.w.en)===norm(r.w.en));
+    await new Promise(resolve=>setTimeout(resolve,520));
+    if(active())quiz()
    },'option');card.append(b)
   }
  }
