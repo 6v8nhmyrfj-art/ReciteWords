@@ -1,8 +1,8 @@
 import {shelf} from './student-shelf.mjs?v=books-periods-20261106';
-import {groupStudy} from './group-study.mjs?v=books-periods-20261106';
+import {groupStudy} from './group-study.mjs?v=feedback-20261106';
 import {speak,audible,quiet} from './reading-audio.mjs';
 import {example,choices,norm,partOfSpeech} from './word-context.mjs?v=books-periods-20261106';
-import {assessment,profile} from './student-tools.mjs?v=books-periods-20261106';
+import {assessment,profile} from './student-tools.mjs?v=feedback-20261106';
 export async function student(api,me,member,basic,logout){
 const link=document.createElement('link');link.rel='stylesheet';link.href='./student.css';document.head.append(link);
 const E=(tag,text,cls)=>{const e=document.createElement(tag);if(text!=null)e.textContent=text;if(cls)e.className=cls;return e};
@@ -24,12 +24,13 @@ if(i===3)await profile({app,E,button,row,api,me,member,summary,tasks,due,logout,
 let audio;
 function prepareChime(){try{const C=window.AudioContext||window.webkitAudioContext;if(C){audio??=new C();if(audio.state==='suspended')audio.resume().catch(()=>{})}}catch{}}
 function feedback(b,ok){
+ b.dataset.feedback=ok?'correct':'incorrect';b.setAttribute('aria-label',(ok?'答对：':'答错：')+b.textContent);
  b.style.background=ok?'#d8f5df':'#ffe1df';b.style.color=ok?'#145c30':'#912822';b.style.borderColor=ok?'#339557':'#cd5047';b.style.opacity='1';
  if(ok&&audio?.state==='running'){const o=audio.createOscillator(),g=audio.createGain(),t=audio.currentTime;o.frequency.value=880;o.connect(g);g.connect(audio.destination);g.gain.setValueAtTime(.001,t);g.gain.exponentialRampToValueAtTime(.09,t+.012);g.gain.exponentialRampToValueAtTime(.001,t+.22);o.start(t);o.stop(t+.23)}
  if(!ok&&!matchMedia('(prefers-reduced-motion: reduce)').matches)b.animate?.([{transform:'translateX(0)'},{transform:'translateX(-5px)'},{transform:'translateX(5px)'},{transform:'translateX(0)'}],{duration:260});
 }
 function mix(items){const a=[...items];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
-function start(t,mode,groupConfig){if(day()!==loadedDay)return home(tab);const stamp=groupConfig?.stamp??++version,key='rw-study:'+me.id+':'+(t.id||'basic');let list=t.words.map((_,i)=>i);if(mode==='quiz')return assessment({t,basic,app,E,button,mix,api,active:()=>stamp===version,back:()=>home(tab)});if(!groupConfig&&(mode==='task'||mode==='self'))return groupStudy({t,basic,mode,api,me,app,E,button,mix,active:()=>stamp===version,back:()=>home(tab),prepareChime,feedback,learn:(book,config)=>start(book,mode,{...config,stamp})});
+function start(t,mode,groupConfig){if(day()!==loadedDay)return home(tab);const stamp=groupConfig?.stamp??++version,key='rw-study:'+me.id+':'+(t.id||'basic');let list=t.words.map((_,i)=>i);if(mode==='quiz')return assessment({t,basic,app,E,button,mix,api,prepareChime,feedback,active:()=>stamp===version,back:()=>home(tab)});if(!groupConfig&&(mode==='task'||mode==='self'))return groupStudy({t,basic,mode,api,me,app,E,button,mix,active:()=>stamp===version,back:()=>home(tab),prepareChime,feedback,learn:(book,config)=>start(book,mode,{...config,stamp})});
 if(mode==='task'&&!groupConfig)list=pending(t);if(mode==='self'&&!groupConfig){const n=Number(localStorage.getItem(key))||0;let queue;try{queue=JSON.parse(localStorage.getItem(key+':queue'))}catch{}if(Array.isArray(queue)&&queue.length&&queue.every(x=>Number.isInteger(x)&&x>=0&&x<t.words.length))list=queue;else if(n>0&&n<list.length)list=list.slice(n)}
 if(groupConfig)list=[...groupConfig.list];
 if(mode==='self'&&!groupConfig)list=list.filter(k=>!known.some(x=>x.word===norm(t.words[k].en)&&x.state!=='relearn'));
@@ -39,14 +40,15 @@ if(check && mode!=='relearn' && mode!=='quiz'){
  const card=E('section',null,'card'),w={en:check.word,zh:check.meaning};app.replaceChildren(E('h1','熟词抽查'),card);
  card.append(E('small','之前斩过的词 · 独立回忆'),audible(w.en,'word'),E('small',partOfSpeech(tasks.flatMap(t=>t.words).find(x=>norm(x.en)===norm(w.en))||w)),E('p','选择中文意思'));speak([w.en]);
  let id=crypto.randomUUID(),choice=null,locked=false;
- for(const opt of [...choices(w,[...t.words,...basic.words],mix),{en:'',zh:'想不起来'}])card.append(button(opt.zh,async()=>{
-  if(locked)return;locked=true;choice??=opt;
+ for(const opt of [...choices(w,[...t.words,...basic.words],mix),{en:'',zh:'想不起来'}]){const option=button(opt.zh,async()=>{
+  if(locked)return;locked=true;prepareChime();choice??=opt;
   try{const ok=await api('/rest/v1/rpc/rw_check_familiar','POST',{p_id:id,p_word:w.en,p_choice:choice.en});
   if(stamp!==version)return;
+  feedback(option,ok);await new Promise(resolve=>setTimeout(resolve,520));if(stamp!==version)return;
   if(!ok){await refresh();if(stamp!==version)return;return start({title:'重新学习',words:[w]},'relearn')}
   known=known.filter(x=>x!==check);if(mode==='check')return home(tab);draw()
   }catch(e){locked=false;throw e}
- },'option'));return
+ },'option');card.append(option)}return
 }
 
 function draw(){if(stamp!==version)return;quiet();app.replaceChildren(button('‹ '+tabs[tab],()=>home(tab),'back'),E('h1',t.title));const card=E('section',null,'card');app.append(card);if(!list.length){if(groupConfig)return groupConfig.done();if(mode==='self'){localStorage.removeItem(key);localStorage.removeItem(key+':queue')}card.append(E('h2',mode==='task'&&!skipped?'今日任务已打卡':skipped?'本轮学习结束':'本轮完成'),E('p','作答 '+tries+' 次 · 答对 '+correct+' 次'+(skipped?' · 跳过 '+skipped+' 词，未计打卡':'')),button('返回'+tabs[tab],()=>home(tab),'primary'));return}
