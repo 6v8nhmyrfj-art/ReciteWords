@@ -1,4 +1,4 @@
-import {example,norm,partOfSpeech} from './word-context.mjs';
+import {example,norm,partOfSpeech} from './word-context.mjs?v=books-periods-20261106';
 import {audible,quiet} from './reading-audio.mjs';
 
 export async function groupStudy({t,basic,mode,api,me,app,E,button,mix,active,back,learn,prepareChime,feedback}){
