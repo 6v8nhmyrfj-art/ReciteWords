@@ -29,7 +29,7 @@ export function createDataClient(transport,userId,{storage=globalThis.localStora
   if(key)writes.set(key,promise);return promise;
  }
  async function call(path,method='GET',body){
-  if(path==='/functions/v1/rw-oral')return transport(path,method,body);
+  if(path==='/functions/v1/rw-oral'||path==='/rest/v1/rpc/rw_class_progress')return transport(path,method,body);
   // Classroom reads must see a teacher's latest recognition/range without invalidating other tabs.
   if(path==='/rest/v1/rpc/rw_weekly'&&body?.p_action==='list')return transport(path,method,body);
   if(path==='/rest/v1/rpc/rw_classroom'&&['catalog','detail','resume'].includes(body?.p_action))return transport(path,method,body);

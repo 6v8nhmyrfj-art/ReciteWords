@@ -1,3 +1,4 @@
+import {classProgress} from './class-progress.mjs?v=class-progress-20261122';
 
 import {audible,quiet,speak} from './reading-audio.mjs';
 import {contexts,example,choices,norm,partOfSpeech} from './word-context.mjs?v=books-periods-20261106';
@@ -79,6 +80,7 @@ export async function profile({app,E,button,row,api,me,member,summary,tasks,due,
   if(completed.length===30)list.append(more);else more.remove();
   if(!completedOffset)list.append(E('p','暂无已完成的班级任务'));
  });list.append(more);
- app.append(hero,history,done,row('到期复习',due.length+' 词',review),button('退出登录',()=>{if(confirm('确认退出当前账号？学习记录已保存在云端。'))logout()}))
+ const classroomRecords=E('div');classProgress(api,classroomRecords,me.id);
+ app.append(hero,classroomRecords,history,done,row('到期复习',due.length+' 词',review),button('退出登录',()=>{if(confirm('确认退出当前账号？学习记录已保存在云端。'))logout()}))
 }
 

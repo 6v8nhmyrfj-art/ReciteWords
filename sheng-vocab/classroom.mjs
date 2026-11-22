@@ -1,7 +1,7 @@
-import {oralAnswer} from './oral-answer.mjs?v=oral-live-20261122';
+import {oralAnswer} from './oral-answer.mjs?v=oral-text-20261122';
 import {speak,quiet} from './reading-audio.mjs';
 import {partOfSpeech,example,norm as wordNorm} from './word-context.mjs?v=books-periods-20261106';
-import {backendConfig} from './backend-config.mjs?v=oral-live-20261122';
+import {backendConfig} from './backend-config.mjs?v=oral-text-20261122';
 const norm=s=>wordNorm(s).replace(/[’‘]/g,"'");
 const E=(tag,text,cls)=>{const n=document.createElement(tag);if(text!=null)n.textContent=text;if(cls)n.className=cls;return n};
 export function selectClassWords(goal,passes,size,from,to){
@@ -15,7 +15,7 @@ export function selectClassWords(goal,passes,size,from,to){
 export const classroomSampleSize=n=>n<10?n:Math.ceil(n/2);
 export async function classroom(api,options={}){
  if(document.querySelector('.cr-root'))return;
- if(!document.querySelector('#classroom-css')){const l=E('link');l.id='classroom-css';l.rel='stylesheet';l.href='./classroom.css?v=oral-live-20261122';document.head.append(l)}
+ if(!document.querySelector('#classroom-css')){const l=E('link');l.id='classroom-css';l.rel='stylesheet';l.href='./classroom.css?v=oral-text-20261122';document.head.append(l)}
  const root=E('div',null,'cr-root'),main=E('div',null,'cr-main');root.setAttribute('role','dialog');root.setAttribute('aria-label','课堂过关');root.setAttribute('aria-modal','true');root.append(main);document.body.append(root);
  const oldOverflow=document.body.style.overflow;document.body.style.overflow='hidden';const focused=document.activeElement;
  let catalog,teacher=false,cohort='',student='',library='',goal,detail,mode='reading',size='10',from=1,to=10,seq=0,closed=false,working=false;
@@ -99,10 +99,10 @@ export async function classroom(api,options={}){
   panel.append(E('h1',writing?w.zh:w.en),E('small',partOfSpeech(w)));
   const ex=example(w),sentence=writing?(w.test_translation||w.translation||ex?.zh):(w.test_example||w.example||ex?.en);if(sentence)panel.append(E('p',sentence,'cr-sentence'));
   if(!writing&&session.response_mode==='oral'){
-   const draft=run,current=session.id;let recordingId=null;const call=p=>api('/functions/v1/rw-oral','POST',{session:current,index:q.index,...p});
+   const draft=run,current=session.id;let recordingId=null,typedAttempt=null;const call=p=>api('/functions/v1/rw-oral','POST',{session:current,index:q.index,...p});
    const save=async value=>{if(closed||run!==draft||session?.id!==current)return;const previous=[...run.answers];run.answers.push(value);try{persist()}catch(e){run.answers=previous;throw e}drawTest()};
-   oralWidget=oralAnswer({container:panel,transcribe:async(blob)=>{const bytes=new Uint8Array(await blob.arrayBuffer());let binary='';for(let i=0;i<bytes.length;i+=8192)binary+=String.fromCharCode(...bytes.subarray(i,i+8192));const r=await call({action:'transcribe',id:crypto.randomUUID(),audio:btoa(binary)});recordingId=r.id;return r},onSubmit:async()=>{
-    if(!recordingId)throw Error('请先录音');const r=await call({action:'grade',id:recordingId});if(r.verdict==='uncertain')throw Error('意思暂时无法确定，请重新说清楚；也可请老师认定。');if(closed||run!==draft||session?.id!==current)return;chime();feedback(panel,r.verdict==='correct');await new Promise(resolve=>setTimeout(resolve,220));await save('oral:'+r.id);
+   oralWidget=oralAnswer({container:panel,transcribe:async(blob)=>{const bytes=new Uint8Array(await blob.arrayBuffer());let binary='';for(let i=0;i<bytes.length;i+=8192)binary+=String.fromCharCode(...bytes.subarray(i,i+8192));const r=await call({action:'transcribe',id:crypto.randomUUID(),audio:btoa(binary)});recordingId=r.id;return r},onSubmit:async({text,input})=>{
+    let payload;if(input==='typed'){if(typedAttempt?.text!==text)typedAttempt={id:crypto.randomUUID(),text};payload={action:'typed',...typedAttempt}}else{if(!recordingId)throw Error('请先录音或输入中文');payload={action:'grade',id:recordingId}}const r=await call(payload);if(r.verdict==='uncertain')throw Error('意思暂时无法确定，请重新说清楚；也可请老师认定。');if(closed||run!==draft||session?.id!==current)return;chime();feedback(panel,r.verdict==='correct');await new Promise(resolve=>setTimeout(resolve,220));await save('oral:'+r.id);
    },onSkip:()=>save('')});
    return;
   }

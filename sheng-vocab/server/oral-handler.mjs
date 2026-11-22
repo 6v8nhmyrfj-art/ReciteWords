@@ -29,7 +29,13 @@ export function oralHandler(env,fetchImpl=fetch){
    let audio;try{audio=Uint8Array.from(atob(p.audio),c=>c.charCodeAt(0))}catch{return reply({error:'录音格式错误'},400)}
    const {text}=await ai.transcribe(audio);await db('rw_oral_answers','POST',{id:p.id,session:p.session,actor:user.id,question_index:p.index,transcript:text});return reply({id:p.id,text});
   }
-  if(p.action==='grade'){
+  if(p.action==='grade'||p.action==='typed'){
+   if(p.action==='typed'){
+    if(!uuid(p.id)||typeof p.text!=='string'||!p.text.trim()||p.text.trim().length>500)return reply({error:'请输入1至500字的中文答案'},400);
+    const [old]=await db('rw_oral_answers?id=eq.'+p.id);
+    if(old){if(old.actor!==user.id||old.session!==p.session||old.question_index!==p.index||old.transcript!==p.text.trim())return reply({error:'答案编号冲突'},409)}
+    else await db('rw_oral_answers','POST',{id:p.id,session:p.session,actor:user.id,question_index:p.index,transcript:p.text.trim()});
+   }
    if(!uuid(p.id))return reply({error:'答案编号无效'},400);
    let [answer]=await db('rw_oral_answers?id=eq.'+p.id);if(!answer||answer.actor!==user.id||answer.session!==p.session||answer.question_index!==p.index)return reply({error:'答案不属于本题'},403);
    if(!answer.verdict){
