@@ -6,11 +6,12 @@ const E=(tag,text,cls)=>{const n=document.createElement(tag);if(text!=null)n.tex
 export function selectClassWords(goal,passes,size,from,to){
  const all=Array.from({length:goal.end-goal.start+1},(_,i)=>goal.start+i),done=new Set(passes.map(x=>x.index));
  if(size==='custom'){
-  if(!Number.isInteger(from)||!Number.isInteger(to)||from<goal.start||to>goal.end||to-from+1<10)return {error:'自选范围至少 10 个，且须在老师指定范围内',selected:[],pending:[]};
+  if(!Number.isInteger(from)||!Number.isInteger(to)||from<goal.start||to>goal.end||to-from+1<1)return {error:'自选范围至少 1 个，且须在老师指定范围内',selected:[],pending:[]};
   const selected=all.filter(i=>i>=from&&i<=to);return {selected,pending:selected.filter(i=>!done.has(i))};
  }
  const selected=all.filter(i=>!done.has(i)).slice(0,Number(size));return {selected,pending:selected};
 }
+export const classroomSampleSize=n=>n<10?n:Math.ceil(n/2);
 export async function classroom(api,options={}){
  if(document.querySelector('.cr-root'))return;
  if(!document.querySelector('#classroom-css')){const l=E('link');l.id='classroom-css';l.rel='stylesheet';l.href='./classroom.css?v=classroom-20261120';document.head.append(l)}
@@ -36,7 +37,7 @@ export async function classroom(api,options={}){
   await load();
  }
  async function load(){if(options.weeklyItem){close();return}const stamp=++seq;working=true;goal=catalog.goals.find(g=>g.cohort===cohort&&g.library===library);detail=null;render();
-  try{if(goal&&student){const d=await rpc('detail',{goal:goal.id,student,mode});if(stamp!==seq||closed)return;detail=d;goal={...goal,...d.goal};from=Math.max(goal.start,Math.min(from,goal.end-9));to=Math.max(from+9,Math.min(to,goal.end));}}
+  try{if(goal&&student){const d=await rpc('detail',{goal:goal.id,student,mode});if(stamp!==seq||closed)return;detail=d;goal={...goal,...d.goal};from=Math.max(goal.start,Math.min(from,goal.end));to=Math.max(from,Math.min(to,goal.end));}}
   finally{if(stamp===seq&&!closed){working=false;render()}}
  }
  function select(label,values,value,onchange){const l=E('label',label),s=E('select');s.setAttribute('aria-label',label);values.forEach(([v,t])=>{const o=E('option',t);o.value=v;s.append(o)});s.value=value;s.onchange=()=>Promise.resolve(onchange(s.value)).catch(showError);l.append(s);return l}
@@ -53,12 +54,12 @@ export async function classroom(api,options={}){
   for(const [value,title] of [[passed,'已过关'],[total-passed,'未过关'],[Math.round(passed/total*100)+'%','词条过关率']]){const d=E('div');d.append(E('b',working?'—':String(value)),E('small',title));grid.append(d)}stats.append(grid);const bar=E('progress');bar.max=total;bar.value=passed;bar.setAttribute('aria-label','词条过关进度');stats.append(bar);
   if(teacher&&detail?.roster?.length){const r=detail.roster,complete=r.filter(x=>Number(x.passed)===total).length,rate=Math.round(r.reduce((s,x)=>s+Number(x.passed),0)/(r.length*total)*100);stats.append(btn(`本班全部过关 ${complete}/${r.length} 人 · 词条 ${rate}%`,roster,'cr-class-link'))}main.append(stats);
   const modes=E('section',null,'cr-panel cr-mode-panel');modes.append(E('h2','测试方式'),modeButtons());main.append(modes);
-  const choices=E('section',null,'cr-panel'),sizes=E('div',null,'cr-sizes');choices.append(E('h2','这次测多少？'));for(const [v,label] of [['10','10 个'],['20','20 个'],['50','50 个'],['custom','自选范围']]){const b=btn(label,()=>{size=v;render()},size===v?'cr-on':'');b.setAttribute('aria-pressed',String(size===v));sizes.append(b)}choices.append(sizes);
+  const choices=E('section',null,'cr-panel'),sizes=E('div',null,'cr-sizes');choices.append(E('h2','本次过关范围'));for(const [v,label] of [['10','10 个'],['20','20 个'],['50','50 个'],['custom','自选范围']]){const b=btn(label,()=>{size=v;render()},size===v?'cr-on':'');b.setAttribute('aria-pressed',String(size===v));sizes.append(b)}choices.append(sizes);
   const summary=E('div',null,'cr-selection');summary.setAttribute('aria-live','polite');const start=btn('',begin,'cr-primary');
-  function update(){if(!detail){summary.textContent=working?'正在读取进度…':'进度加载失败，请刷新';start.disabled=true;start.textContent='开始测试';return}const x=selectClassWords(goal,detail.passes,size,from,to);summary.textContent=x.error||`已选 ${x.selected.length} · 已过关 ${x.selected.length-x.pending.length} · 需测 ${x.pending.length}`;start.disabled=working||!!x.error||!x.pending.length;start.textContent=x.pending.length?`开始测试 · ${x.pending.length} 个`:'当前范围已过关'}
+  function update(){if(!detail){summary.textContent=working?'正在读取进度…':'进度加载失败，请刷新';start.disabled=true;start.textContent='开始测试';return}const x=selectClassWords(goal,detail.passes,size,from,to);summary.textContent=x.error||`已选 ${x.selected.length} · 已过关 ${x.selected.length-x.pending.length} · 待过关 ${x.pending.length} · 抽查 ${classroomSampleSize(x.pending.length)} 题`;start.disabled=working||!!x.error||!x.pending.length;start.textContent=x.pending.length?`开始抽查 · ${classroomSampleSize(x.pending.length)} 题`:'当前范围已过关'}
   if(size==='custom'){const pair=E('div',null,'cr-pair cr-range');pair.append(number('起始序号',from,v=>{from=v;update()}),number('结束序号',to,v=>{to=v;update()}));choices.append(pair)}choices.append(summary);update();main.append(choices);
-  if(run){const resume=btn('继续未完成：'+(run.studentName||'我')+' · '+(run.title||'课堂测试'),resumeRun,'cr-resume');main.append(resume)}
-  const actions=E('div',null,'cr-actions');if(teacher)actions.append(btn('范围 / 认定过关',manage,'cr-soft'));actions.append(start);main.append(actions,E('small','每组最多 5 题 · 全对过关 · 错词重学再测','cr-rule'),status());
+  if(run){const resume=btn('继续未完成：'+(run.studentName||'我')+' · '+(run.title||'课堂测试'),resumeRun,'cr-resume');main.append(resume,btn('更换测试目标',changeTarget,'cr-link'))}
+  const actions=E('div',null,'cr-actions');if(teacher)actions.append(btn('范围 / 认定过关',manage,'cr-soft'));actions.append(start);main.append(actions,E('small','不足10个全测，否则抽查50%（向上取整）· 正确率≥90%范围过关','cr-rule'),status());
  }
  function modal(title){const d=E('dialog',null,'cr-dialog'),box=E('div',null,'cr-dialog-inner'),head=E('div',null,'cr-between');head.append(E('h2',title),btn('关闭',()=>d.close(),'cr-link'));box.append(head);d.append(box);root.append(d);d.addEventListener('close',()=>d.remove());d.showModal();return {d,box}}
  function roster(){const {box}=modal('本班过关情况 · '+(mode==='reading'?'英翻中':'中翻英')),list=E('div',null,'cr-list');for(const m of detail.roster){const b=btn(m.display_name+'　'+m.passed+' / '+(goal.end-goal.start+1),async()=>{student=m.user_id;box.closest('dialog').close();await load()},'cr-roster-row');list.append(b)}box.append(list)}
@@ -77,30 +78,40 @@ export async function classroom(api,options={}){
   }box.append(localStatus);
  }
  async function begin(){if(working)return;if(run){notice.textContent='请先继续未完成测试，或在测试页结束该轮。';return}const x=selectClassWords(goal,detail.passes,size,from,to);if(x.error||!x.pending.length)return;
-  const id=crypto.randomUUID();session=await rpc('begin',{id,goal:goal.id,student,mode,revision:goal.revision,size,start:from,end:to});if(closed)return;
-  run={session:id,offset:session.next_offset,answers:[],pending:null,result:null,title:goal.title,studentName:teacher?catalog.members.find(m=>m.user_id===student)?.display_name:catalog.member.display_name};try{persist()}catch(e){session=null;run=null;throw e}drawTest();
+  const id=crypto.randomUUID();session=await rpc('begin',{id,goal:goal.id,student,mode,revision:goal.revision,policy:'sampling90',size,start:from,end:to});if(closed)return;
+  run={session:id,offset:session.next_offset,answers:[],pending:null,result:null,title:goal.title,selection:{size,from,to,cohort,library,student,mode},studentName:teacher?catalog.members.find(m=>m.user_id===student)?.display_name:catalog.member.display_name};try{persist()}catch(e){session=null;run=null;throw e}drawTest();
  }
- async function resumeRun(){try{session=await rpc('resume',{session:run.session});if(closed)return;if(session.next_offset!==run.offset){run.offset=session.next_offset;run.answers=[];run.pending=null;run.result=null;persist()}drawTest()}catch(e){session=null;if(options.weeklyItem){main.replaceChildren(top('班级任务'),E('p',e.message),btn('重新进入任务',()=>{forget();return init()},'cr-primary'));return}render();notice.textContent=e.message;main.append(btn('结束此轮，保留已过关记录',()=>{forget();return load()},'cr-link'))}}
+ async function resumeRun(){try{session=await rpc('resume',{session:run.session});if(closed)return;if(!options.weeklyItem){const target=catalog.goals.find(g=>g.id===session.goal);if(target){cohort=target.cohort;library=target.library;student=session.student;mode=session.mode;if(run.selection){size=run.selection.size;from=run.selection.from;to=run.selection.to}else{size='custom';from=Math.min(...(session.selected_indices||session.indices));to=Math.max(...(session.selected_indices||session.indices))}}}if(session.assessment_version===2&&session.final_result){run.result=session.final_result;persist();drawTest();return}if(session.next_offset!==run.offset){run.offset=session.next_offset;run.answers=[];run.pending=null;run.result=null;persist()}drawTest()}catch(e){session=null;if(options.weeklyItem){main.replaceChildren(top('班级任务'),E('p',e.message),btn('重新进入任务',()=>{forget();return init()},'cr-primary'));return}render();notice.textContent=e.message;main.append(btn('结束此轮，保留已过关记录',()=>{forget();return load()},'cr-link'))}}
+ async function changeTarget(){quiet();forget();if(options.weeklyItem)return close();await load();main.querySelector('select')?.focus();}
  function leaveTest(){quiet();session=null;return load()}
- function currentBatch(){return session.questions.slice(run.offset,run.offset+5)}
+ function currentBatch(){return session.assessment_version===2?session.questions:session.questions.slice(run.offset,run.offset+5)}
  function drawTest(){if(closed||!session||!run)return;quiet();main.className='cr-main cr-test';main.replaceChildren(top(run.studentName+' · '+run.title,leaveTest));
+  if(!options.weeklyItem&&!run.result)main.firstChild.append(btn('更换测试目标',changeTarget,'cr-link'));
   if(run.result)return resultView();if(run.offset>=session.questions.length){main.append(E('section','本轮已全部过关','cr-panel'),btn('返回课堂',()=>{forget();return load()},'cr-primary'));return}
   if(run.answers.length>=currentBatch().length)return submit();
   const batch=currentBatch(),q=batch[run.answers.length],w=q.word,writing=session.mode==='writing',panel=E('section',null,'cr-test-card');main.append(panel);
-  panel.append(E('small',`第 ${Math.floor(run.offset/5)+1} 组 · ${run.answers.length+1}/${batch.length} 题 · 总进度 ${run.offset+run.answers.length}/${session.questions.length}`));
+  panel.append(E('small',session.assessment_version===2?`抽查 ${run.answers.length+1}/${batch.length} 题 · 至少答对 ${Math.ceil(batch.length*.9)} 题过关`:`第 ${Math.floor(run.offset/5)+1} 组 · ${run.answers.length+1}/${batch.length} 题 · 总进度 ${run.offset+run.answers.length}/${session.questions.length}`));
   const progress=E('progress');progress.max=session.questions.length;progress.value=run.offset+run.answers.length;panel.append(progress);
   panel.append(E('h1',writing?w.zh:w.en),E('small',partOfSpeech(w)));
   const ex=example(w),sentence=writing?(w.test_translation||w.translation||ex?.zh):(w.test_example||w.example||ex?.en);if(sentence)panel.append(E('p',sentence,'cr-sentence'));
   const hint=E('p',null,'cr-status');hint.setAttribute('role','status');let busy=false;
   const choose=async(value,b)=>{if(busy)return;const current=session.id;busy=true;chime();quiet();const ok=[w.en,...(writing&&Array.isArray(w.alternatives)?w.alternatives:[])].some(x=>norm(x)===norm(value)&&norm(value)!=='');
-   try{const previous=[...run.answers];run.answers.push(value);try{persist()}catch(e){run.answers=previous;throw e}panel.querySelectorAll('button,input').forEach(n=>n.disabled=true);feedback(b,ok);hint.textContent=ok?'答对！本组完成后保存过关。':'正确答案：'+w.en+' · '+w.zh+'；本组结束后重学错词。';await new Promise(r=>setTimeout(r,ok?220:850));if(!closed&&session?.id===current)drawTest()}catch(e){busy=false;hint.textContent=e.message}
+   try{const previous=[...run.answers];run.answers.push(value);try{persist()}catch(e){run.answers=previous;throw e}panel.querySelectorAll('button,input').forEach(n=>n.disabled=true);feedback(b,ok);hint.textContent=ok?'答对！本轮结束后统一判定过关。':'正确答案：'+w.en+' · '+w.zh+'；本轮结束后查看结果。';await new Promise(r=>setTimeout(r,ok?220:850));if(!closed&&session?.id===current)drawTest()}catch(e){busy=false;hint.textContent=e.message}
   };
   if(writing){const input=E('input');input.placeholder='输入英文';input.setAttribute('aria-label','英文答案');input.autocomplete='off';input.autocapitalize='none';input.spellcheck=false;input.maxLength=1000;const b=btn('确认答案',()=>{if(!input.value.trim()){hint.textContent='请输入英文，或选择想不起来';return}return choose(input.value.trim(),b)},'cr-primary');input.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();b.click()}};panel.append(input,b)}
   else for(const o of q.options){const b=btn(o.zh,()=>choose(o.en,b),'cr-option');panel.append(b)}
   const skip=btn('想不起来',()=>choose('',skip),'cr-link');panel.append(skip,hint);main.append(btn('结束本轮（保留已过关词）',()=>{forget();return load()},'cr-link'));
  }
- async function submit(){const draft=run,current=session.id;main.replaceChildren(top('正在保存本组',leaveTest),E('p','已记录答案，正在确认过关…'));try{run.pending??=crypto.randomUUID();persist();const r=await rpc('submit',{id:run.pending,session:session.id,offset:run.offset,answers:run.answers});if(run!==draft)return;run.result=r;persist();if(!closed&&session?.id===current)drawTest()}catch(e){if(closed||run!==draft||session?.id!==current)return;main.replaceChildren(top('保存尚未完成',leaveTest),E('p',e.message,'cr-error'),btn('重试保存',submit,'cr-primary'),E('p','答案已保留；网络恢复后使用相同编号重试。','cr-sub'))}}
- function resultView(){const r=run.result,card=E('section',null,'cr-test-card');card.append(E('h1',r.passed?'本组全部过关':'先巩固错词'),E('p',`本组答对 ${r.correct} / ${r.total}`));
+ async function submit(){const draft=run,current=session.id;main.replaceChildren(top(session.assessment_version===2?'正在结算抽查':'正在保存本组',leaveTest),E('p','已记录答案，正在确认过关…'));try{run.pending??=crypto.randomUUID();persist();const r=await rpc('submit',{id:run.pending,session:session.id,offset:run.offset,answers:run.answers});if(run!==draft)return;run.result=r;persist();if(!closed&&session?.id===current)drawTest()}catch(e){if(closed||run!==draft||session?.id!==current)return;main.replaceChildren(top('保存尚未完成',leaveTest),E('p',e.message,'cr-error'),btn('重试保存',submit,'cr-primary'),E('p','答案已保留；网络恢复后使用相同编号重试。','cr-sub'))}}
+ function resultView(){const r=run.result,card=E('section',null,'cr-test-card');
+  if(session.assessment_version===2){
+   card.append(E('h1',r.passed?'过关 ✓':'尚未过关'),E('p',`答对 ${r.correct} / ${r.total} 题 · 正确率 ${r.accuracy}%`),E('p',r.passed?`本次范围 ${r.scope_total} 个词已过关，云端已保存。`:`本次范围未记过关，至少答对 ${r.required_correct} 题。`));
+   const wrong=r.results.filter(x=>!x.correct);if(wrong.length){const details=E('details'),sum=E('summary',`查看 ${wrong.length} 个错词`);details.append(sum);for(const x of wrong)details.append(E('p',x.word.en+' · '+x.word.zh));card.append(details)}
+   card.append(btn('更换测试目标',changeTarget,'cr-primary'));
+   if(!r.passed)card.append(btn('重新抽查当前范围',async()=>{forget();await load();await begin()},'cr-soft'));
+   main.append(card);return;
+  }
+  card.append(E('h1',r.passed?'本组全部过关':'先巩固错词'),E('p',`本组答对 ${r.correct} / ${r.total}`));
   if(r.passed){card.append(E('p','云端已保存，本组词不会重复计数。'));card.append(btn(r.complete?'本轮完成，返回课堂':'测试下一组',()=>{if(r.complete){forget();return load()}run.offset=r.next_offset;session.next_offset=r.next_offset;run.answers=[];run.pending=null;run.result=null;persist();drawTest()},'cr-primary'))}
   else{card.append(E('p','本组暂未记过关。重学错词后，重新测试本组。'));card.append(btn('重学错词',()=>remedial(0),'cr-primary'))}main.append(card);
  }

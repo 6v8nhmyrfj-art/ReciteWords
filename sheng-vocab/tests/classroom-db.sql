@@ -12,7 +12,7 @@ begin
  perform set_config('request.jwt.claim.sub',learner::text,true);
  rejected:=false;begin perform public.rw_classroom('set_goal',jsonb_build_object('cohort',class_name,'library',book,'start',1,'end',20));exception when others then rejected:=true;end;if not rejected then raise exception 'student changed goal';end if;
  rejected:=false;begin perform public.rw_classroom('detail',jsonb_build_object('goal',goal,'student',other_id,'mode','reading'));exception when others then rejected:=true;end;if not rejected then raise exception 'student read other';end if;
- rejected:=false;begin perform public.rw_classroom('begin',jsonb_build_object('id',gen_random_uuid(),'goal',goal,'mode','reading','revision',1,'size','custom','start',1,'end',9));exception when others then rejected:=true;end;if not rejected then raise exception 'accepted range under 10';end if;
+ rejected:=false;begin perform public.rw_classroom('begin',jsonb_build_object('id',gen_random_uuid(),'goal',goal,'mode','reading','revision',1,'size','custom','start',1,'end',0));exception when others then rejected:=true;end;if not rejected then raise exception 'accepted empty range';end if;
  session:=public.rw_classroom('begin',jsonb_build_object('id',gen_random_uuid(),'goal',goal,'mode','reading','revision',1,'size','10'));
  if jsonb_array_length(session->'questions')<>10 then raise exception 'wrong question count';end if;
  select jsonb_agg(q->'word'->>'en' order by ord) into answers from jsonb_array_elements(session->'questions') with ordinality t(q,ord) where ord<=5;
