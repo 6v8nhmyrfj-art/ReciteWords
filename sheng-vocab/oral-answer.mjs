@@ -1,32 +1,41 @@
-// Shared press-to-speak input for website, classroom and future clients.
-// The caller supplies authoritative grading; this widget never decides correctness.
-export function oralAnswer({container,onSubmit,onSkip,onStatus=()=>{},Recognition=globalThis.SpeechRecognition||globalThis.webkitSpeechRecognition,maxSeconds=20}){
- const E=(tag,text)=>{const n=document.createElement(tag);if(text)n.textContent=text;return n};
- const box=E('section');box.className='oral-answer';const prompt=E('p','看英文和例句，用中文说出意思'),hold=E('button','按住说中文'),status=E('p'),transcript=E('textarea'),submit=E('button','确认并提交'),retry=E('button','重新录音'),fallback=E('button','改用文字输入'),skip=E('button','想不起来');
- for(const b of [hold,submit,retry,fallback,skip])b.type='button';
- hold.className='oral-hold';hold.style.touchAction='none';hold.setAttribute('aria-label','按住说中文，松开结束');hold.setAttribute('aria-pressed','false');
- status.setAttribute('role','status');transcript.setAttribute('aria-label','识别出的中文答案');transcript.rows=2;transcript.maxLength=500;transcript.placeholder='录音后显示中文，可先核对识别结果';transcript.hidden=true;submit.disabled=true;retry.hidden=true;
- let recognition=null,recording=false,held=false,finishing=false,sending=false,disposed=false,timer=null,finalText='',generation=0,typed=false;
- const report=text=>{if(disposed)return;status.textContent=text;onStatus(text)};
- const sync=()=>{hold.disabled=!Recognition||sending||finishing;retry.disabled=sending||recording||finishing;fallback.disabled=sending||recording||finishing;submit.disabled=sending||recording||finishing||!transcript.value.trim();skip.disabled=sending||recording||finishing};
- function resetCapture(){clearTimeout(timer);timer=null;recording=false;held=false;finishing=false;hold.setAttribute('aria-pressed','false');hold.textContent='按住说中文';sync()}
- function finish(){if(!recording)return;held=false;finishing=true;hold.textContent='正在识别…';sync();try{recognition.stop()}catch{resetCapture();report('录音未完成，请重试。')}}
- function start(){if(disposed||sending||recording||finishing)return;if(!Recognition){report('此浏览器暂不支持语音识别，可用文字输入中文答案。');return}
-  const stamp=++generation;finalText='';transcript.value='';typed=false;transcript.hidden=false;retry.hidden=false;recognition=new Recognition();recognition.lang='zh-CN';recognition.continuous=true;recognition.interimResults=true;recognition.maxAlternatives=1;held=true;recording=true;hold.textContent='正在听，松开结束';hold.setAttribute('aria-pressed','true');sync();report('请说出中文意思；松开后核对文字再提交。');
-  const current=()=>!disposed&&stamp===generation;
-  recognition.onresult=e=>{if(!current())return;let interim='';for(let i=e.resultIndex;i<e.results.length;i++){const text=e.results[i][0].transcript;if(e.results[i].isFinal)finalText+=text;else interim+=text}transcript.value=(finalText+interim).slice(0,500);sync()};
-  recognition.onerror=e=>{if(!current())return;const errors={'not-allowed':'麦克风权限未开启，请在浏览器中允许使用麦克风。','service-not-allowed':'当前浏览器无法使用语音服务，请改用文字输入。','audio-capture':'没有检测到可用麦克风。','network':'语音服务连接失败，请重录或输入中文答案。','no-speech':'没有听清声音，请重录。','aborted':'录音已取消。'};report(errors[e.error]||'识别未完成，请重录或输入中文答案。');resetCapture()};
-  recognition.onend=()=>{if(!current())return;resetCapture();if(transcript.value.trim())report('请核对识别出的中文，再点击确认并提交。');else if(!status.textContent.includes('权限')&&!status.textContent.includes('失败')&&!status.textContent.includes('无法'))report('没有识别到内容，请重录或输入中文。')};
-  recognition.onstart=()=>{if(current()&&!held)try{recognition.stop()}catch{}};
-  try{recognition.start();timer=setTimeout(()=>{if(current()&&recording){finish();report('已录满 '+maxSeconds+' 秒，正在识别。')}},maxSeconds*1000)}catch{resetCapture();report('录音启动失败，请重试或输入中文。')}
+// Recording input only. The caller owns authenticated transcription and grading.
+export function oralAnswer({container,onSubmit,onSkip,onStatus=()=>{},transcribe,Recognition=globalThis.SpeechRecognition||globalThis.webkitSpeechRecognition,maxSeconds=20}){
+ const E=(tag,text,cls)=>{const n=document.createElement(tag);n.textContent=text||'';if(cls)n.className=cls;return n};
+ const box=E('section','','oral-answer'),answer=E('output','','oral-transcript'),status=E('p','','oral-status'),hold=E('button','按住说中文','oral-hold'),skip=E('button','想不起来','oral-skip'),tray=E('div','','oral-actions'),cancel=E('button','取消'),send=E('button','提交');
+ answer.setAttribute('aria-label','识别出的中文答案');status.setAttribute('role','status');tray.hidden=true;tray.append(cancel,send);for(const b of [hold,skip,cancel,send])b.type='button';hold.style.touchAction='none';hold.setAttribute('aria-label','按住说中文，上滑选择取消或提交');
+ let phase='idle',disposed=false,gen=0,capture=null,timer=null,startY=0,choice='',wantSubmit=false,text='',controller=null;
+ const report=s=>{if(!disposed){status.textContent=s;onStatus(s)}};
+ const sync=()=>{hold.disabled=['recognizing','sending'].includes(phase);skip.disabled=phase!=='idle';hold.setAttribute('aria-pressed',String(phase==='recording'));hold.textContent=phase==='recording'?'松开显示答案 · 上滑取消或提交':phase==='recognizing'?'正在识别…':phase==='sending'?'正在提交…':'按住说中文';cancel.classList.toggle('selected',choice==='cancel');send.classList.toggle('selected',choice==='send')};
+ const cleanup=()=>{clearTimeout(timer);timer=null};
+ const ready=t=>{if(disposed)return;phase='idle';text=t.trim().slice(0,500);answer.textContent=text;sync();if(!text){tray.hidden=true;report('没有听清，请按住重录。');return}tray.hidden=false;report('');if(wantSubmit)submit()};
+ const fail=e=>{if(disposed)return;cleanup();phase='idle';tray.hidden=!text;sync();report(e?.name==='NotAllowedError'?'请允许使用麦克风后重试。':e?.message||'识别失败，请按住重录。')};
+ function abort(){gen++;cleanup();controller?.abort();capture?.abort();capture=null;phase='idle';wantSubmit=false;text='';answer.textContent='';tray.hidden=true;choice='';sync();report('已取消');}
+ async function submit(){if(disposed||phase!=='idle'||!text)return;phase='sending';tray.hidden=true;sync();report('正在判定意思…');try{await onSubmit({text,input:'speech'});if(!disposed){text='';report('已提交')}}catch(e){if(!disposed){tray.hidden=false;report(e.message||'提交失败，答案已保留。')}}finally{if(!disposed){phase='idle';sync()}}}
+ async function start(y){if(disposed||phase!=='idle')return;const stamp=++gen;startY=y;capture=null;choice='';wantSubmit=false;text='';answer.textContent='';tray.hidden=true;phase='recording';sync();report('');const current=()=>!disposed&&stamp===gen;
+  try{
+   if(transcribe){
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true});if(!current()||phase!=='recording'){stream.getTracks().forEach(t=>t.stop());return}
+    const recorder=new MediaRecorder(stream),chunks=[];const stopTracks=()=>stream.getTracks().forEach(t=>t.stop());
+    capture={stop(){recorder.stop()},abort(){recorder.onstop=null;if(recorder.state!=='inactive')recorder.stop();stopTracks()}};
+    recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
+    recorder.onerror=()=>{stopTracks();if(current())fail(Error('录音失败，请重试。'))};
+    recorder.onstop=async()=>{stopTracks();if(!current())return;controller=new AbortController();try{const result=await transcribe(new Blob(chunks,{type:recorder.mimeType}),{signal:controller.signal});if(current())ready(result.text??result)}catch(e){if(current())fail(e)}};recorder.start();
+   }else{
+    if(!Recognition)throw Error('语音服务尚未连接，此浏览器无法预览录音。');
+    const r=new Recognition();let final='';r.lang='zh-CN';r.continuous=true;r.interimResults=true;
+    capture={stop:()=>r.stop(),abort:()=>r.abort()};r.onresult=e=>{if(!current())return;let interim='';for(let i=e.resultIndex;i<e.results.length;i++){if(e.results[i].isFinal)final+=e.results[i][0].transcript;else interim+=e.results[i][0].transcript}text=final+interim;answer.textContent=text};
+    r.onend=()=>{if(current()){cleanup();ready(text)}};r.onerror=e=>{if(current()){gen++;fail(Error(e.error==='not-allowed'?'请允许使用麦克风后重试。':'没有识别成功，请按住重录。'))}};r.start();
+   }
+   if(current())timer=setTimeout(()=>finish(false),maxSeconds*1000);
+  }catch(e){if(current())fail(e)}
  }
- hold.onpointerdown=e=>{if(e.button!==0)return;e.preventDefault();hold.setPointerCapture?.(e.pointerId);start()};hold.onpointerup=finish;hold.onpointercancel=()=>{if(recording){held=false;generation++;try{recognition.abort()}catch{}resetCapture();report('录音已取消，请重录。')}};hold.onlostpointercapture=()=>{if(recording&&held)finish()};
- hold.onkeydown=e=>{if((e.key===' '||e.key==='Enter')&&!e.repeat){e.preventDefault();start()}};hold.onkeyup=e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();finish()}};hold.oncontextmenu=e=>e.preventDefault();
- retry.onclick=()=>{transcript.value='';finalText='';sync();report('请再次按住按钮说中文。')};fallback.onclick=()=>{typed=true;transcript.hidden=false;transcript.focus();report('输入你理解的中文意思，不需要照抄词书措辞。')};transcript.oninput=()=>{typed=true;sync()};
- submit.onclick=async()=>{if(submit.disabled||disposed)return;sending=true;sync();report('正在判定意思…');try{await onSubmit({text:transcript.value.trim(),input:typed?'typed-or-edited':'speech'});if(!disposed)report('答案已提交。')}catch(e){report(e.message||'提交失败，答案已保留，请重试。')}finally{sending=false;if(!disposed)sync()}};
- skip.onclick=async()=>{if(skip.disabled||disposed)return;sending=true;sync();try{await onSkip?.()}catch(e){report(e.message||'保存失败，请重试。')}finally{sending=false;if(!disposed)sync()}};
- const hide=()=>{if(document.hidden&&recording){generation++;try{recognition.abort()}catch{}resetCapture();report('页面切换，录音已停止。')}};document.addEventListener('visibilitychange',hide);
- if(!Recognition){hold.disabled=true;report('此浏览器不支持内置语音识别，请用文字输入中文。')}
- box.append(prompt,hold,status,transcript,submit,retry,fallback,skip);container.append(box);
- return {element:box,dispose(){disposed=true;generation++;clearTimeout(timer);try{recognition?.abort()}catch{}document.removeEventListener('visibilitychange',hide);box.remove()}};
+ function finish(submitAfter){if(phase!=='recording')return;cleanup();wantSubmit=submitAfter;phase='recognizing';tray.hidden=true;sync();if(!capture){abort();return}try{capture.stop()}catch(e){fail(e)}}
+ hold.onpointerdown=e=>{if(e.button!==0||phase!=='idle')return;e.preventDefault();try{hold.setPointerCapture?.(e.pointerId)}catch{}start(e.clientY)};
+ hold.onpointermove=e=>{if(phase!=='recording')return;const up=startY-e.clientY>45;tray.hidden=!up;choice=up?(e.clientX<hold.getBoundingClientRect().left+hold.offsetWidth/2?'cancel':'send'):'';sync()};
+ hold.onpointerup=()=>{if(phase==='recording'){if(choice==='cancel')abort();else finish(choice==='send')}};hold.onpointercancel=()=>{if(phase==='recording')abort()};hold.onlostpointercapture=()=>{if(phase==='recording')abort()};hold.oncontextmenu=e=>e.preventDefault();
+ hold.onkeydown=e=>{if([' ','Enter'].includes(e.key)&&!e.repeat){e.preventDefault();start(0)}};hold.onkeyup=e=>{if([' ','Enter'].includes(e.key)){e.preventDefault();finish(false)}};
+ cancel.onclick=()=>{abort();text='';answer.textContent=''};send.onclick=submit;
+ skip.onclick=async()=>{if(phase!=='idle')return;phase='sending';sync();try{await onSkip?.()}catch(e){report(e.message||'保存失败，请重试。')}finally{if(!disposed){phase='idle';sync()}}};
+ const hide=()=>{if(document.hidden&&['recording','recognizing'].includes(phase))abort()};document.addEventListener('visibilitychange',hide);
+ box.append(answer,status,tray,hold,skip);container.append(box);sync();return{element:box,dispose(){abort();disposed=true;document.removeEventListener('visibilitychange',hide);box.remove()}};
 }
