@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {cloudflareAI} from '../server/cloudflare-ai.mjs';
+let calls=[];let result={text:'提高'};
+const api=cloudflareAI({accountId:'a'.repeat(32),apiToken:'test-only',gradingModel:'@cf/test/model',fetchImpl:async(url,opts)=>{calls.push({url,body:JSON.parse(opts.body)});return{ok:true,json:async()=>({success:true,result})}}});
+assert.deepEqual(await api.transcribe(new Uint8Array([1,2,3])),{text:'提高'});assert.equal(calls[0].body.audio,'AQID');
+result={response:'{"verdict":"uncertain","reason":"识别不清"}'};assert.equal((await api.grade({word:'improve',meaning:'提高',example:'',answer:'提告'})).verdict,'uncertain');
+result={response:'garbage'};await assert.rejects(api.grade({word:'improve',meaning:'提高',answer:'提高'}));
+result={text:''};await assert.rejects(api.transcribe(new Uint8Array([1])));
+await assert.rejects(api.transcribe(new Uint8Array()));
+console.log('PASS provider request, audio encoding, uncertain grading, malformed output and empty audio');
