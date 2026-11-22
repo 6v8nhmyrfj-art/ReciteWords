@@ -1,3 +1,4 @@
+import {bookFilter} from './book-filter.mjs?v=book-filter-20261122';
 import {speak,quiet} from './reading-audio.mjs';
 import {example,partOfSpeech} from './word-context.mjs?v=books-periods-20261106';
 const norm=s=>String(s||'').trim().toLowerCase().replace(/[’‘]/g,"'").replace(/\s+/g,' ');
@@ -7,10 +8,10 @@ function summaryNodes(s,E){
  const bar=E('progress');bar.max=100;bar.value=s.estimate??0;bar.setAttribute('aria-label',heading);bar.style.cssText='width:100%;height:12px;accent-color:#347bc8';
  return [E('h2',heading),bar,E('p','已测覆盖 '+s.tested+' / '+s.total+' 词 · '+s.coverage+'%'),E('small','最近独立答对 '+s.correct+' 词 · 延迟复测通过 '+s.delayed+' 词'),E('p',s.last_test?'最近测评：'+new Date(s.last_test).toLocaleString('zh-CN'):'尚无有效测评'),...(s.ungraded?[E('small','含 '+s.ungraded+' 个未分级条目，暂按常用层抽取。')]:[])];
 }
-export async function masteryBooks({api,app,E,button,active,start}){
+export async function masteryBooks({api,app,E,button,active,start,preferredGrade}){
  const books=await api('/rest/v1/rpc/rw_mastery_books','POST',{});if(!active())return;
  const rate=s=>s.tested?Math.round(100*s.correct/s.tested)+'%':'—';
- let scroll=0;
+ const filters={};let scroll=0;
  function detail(b){
   if(!active())return;scroll=window.scrollY;
   const s=b.summary,card=E('section',null,'card');
@@ -31,14 +32,14 @@ export async function masteryBooks({api,app,E,button,active,start}){
  function list(focusKey){
   if(!active())return;
   app.replaceChildren(E('h1','测单词'));
-  for(const b of books){
+  bookFilter({items:books,container:app,state:filters,preferredGrade,render:(visible,list)=>{for(const b of visible){
    const s=b.summary,card=button('',()=>detail(b),'book-compact'),name=E('strong',b.title),metrics=E('span');
    card.style.cssText='display:block;width:100%;margin:8px 0;padding:14px 16px;text-align:left;background:#fff;border:1px solid #d7e5f4;border-radius:14px;min-height:88px';
    name.style.cssText='display:block;font-size:16px;line-height:1.4;overflow-wrap:anywhere';
    metrics.style.cssText='display:flex;flex-wrap:wrap;gap:8px 24px;margin-top:8px;font-size:13px;color:#526e8a';
-   metrics.append(E('span','覆盖率 '+s.coverage+'%'),E('span','正确率 '+rate(s)));card.append(name,metrics);app.append(card);
+   metrics.append(E('span','覆盖率 '+s.coverage+'%'),E('span','正确率 '+rate(s)));card.append(name,metrics);list.append(card);
    if(focusKey&&(b.source_key||b.id)===focusKey)card.focus({preventScroll:true});
-  }
+  }}});
   if(!books.length)app.append(E('p','暂无词书，请先在自主学习中添加老师的单词书。'));
  }
  list();

@@ -1,21 +1,23 @@
-export async function shelf({api,app,E,button,row,active,start,basic,due,review}){
+import {bookFilter} from './book-filter.mjs?v=book-filter-20261122';
+export async function shelf({api,app,E,button,row,active,start,basic,due,review,preferredGrade}){
  const [catalog,saved]=await Promise.all([
   api('/rest/v1/rpc/rw_library_catalog','POST',{}),
   api('/rest/v1/rw_bookshelf?select=library&order=added_at.desc')
  ]);
  if(!active())return;
+ const filters={};
  const chosen=new Set(saved.map(x=>x.library));
  function home(){
   if(!active())return;
   app.replaceChildren(E('h1','自主学习'),button('＋ 添加单词书',picker,'primary'));
   const books=catalog.filter(b=>chosen.has(b.id));
   if(!books.length)app.append(E('p','从老师制作的词书中选择，添加后就能开始学习。'));
-  for(const b of books){
+  bookFilter({items:books,container:app,state:filters,preferredGrade,render:(visible,list)=>{for(const b of visible){
    const box=E('section');box.append(row(b.book?b.book+' · '+b.title:b.title,b.word_count+' 个学习条目',async()=>{const book=await api.loadBook('library',b);if(active())return start(book,'self')}),button('移出书架',async()=>{
     if(!confirm('将这本词书移出书架？已保存的学习记录仍可在“我的”查看。'))return;
     await api('/rest/v1/rw_bookshelf?library=eq.'+b.id,'DELETE');chosen.delete(b.id);home()
-   },'back'));app.append(box)
-  }
+   },'back'));list.append(box)
+  }}});
   if(due.length)app.append(row('到期复习',due.length+' 词待巩固',review));
   app.append(row(basic.title,'内置练习 · '+basic.words.length+' 词',()=>start(basic,'self')))
  }
@@ -24,7 +26,8 @@ export async function shelf({api,app,E,button,row,active,start,basic,due,review}
   const groups=new Map();
   for(const b of catalog){const k=b.book?.trim()||b.title;if(!groups.has(k))groups.set(k,[]);groups.get(k).push(b)}
   if(!groups.size)app.append(E('p','老师还没有制作词书，制作完成后会显示在这里。'));
-  for(const [title,units] of groups){
+  const grouped=[...groups].map(([title,units])=>({...units[0],title,units}));
+  bookFilter({items:grouped,container:app,state:filters,preferredGrade,render:(visible,list)=>{for(const {title,units} of visible){
    const box=E('section'),pending=units.filter(b=>!chosen.has(b.id));
    const add=button(pending.length?'添加到我的书架':'已添加',async()=>{
     try{await api('/rest/v1/rw_bookshelf','POST',pending.map(b=>({library:b.id})))}catch(e){
@@ -33,8 +36,8 @@ export async function shelf({api,app,E,button,row,active,start,basic,due,review}
     }
     pending.forEach(b=>chosen.add(b.id));home()
    },'primary');add.disabled=!pending.length;
-   box.append(E('h2',title),E('p',units.map(b=>b.title).join(' · ')),E('p',units.reduce((n,b)=>n+b.word_count,0)+' 个条目'),add);app.append(box)
-  }
+   box.append(E('h2',title),E('p',units.map(b=>b.title).join(' · ')),E('p',units.reduce((n,b)=>n+b.word_count,0)+' 个条目'),add);list.append(box)
+  }}});
  }
  home()
 }
