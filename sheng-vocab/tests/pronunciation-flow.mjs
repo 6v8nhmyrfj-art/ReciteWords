@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import {createPronunciationFlow as create,advancePronunciation as next,currentPronunciationIndex as current,pronunciationProgress as progress} from '../pronunciation-flow.mjs';
+let s=create([1,2,3,4],[2]);assert.equal(current(s),1);assert.equal(progress(s).remaining,3);
+const initial=structuredClone(s);s=next(s,{kind:'judged',index:1,verdict:'correct'});assert.deepEqual(initial.passed,[2]);
+s=next(s,{kind:'judged',index:3,verdict:'incorrect'});assert.equal(current(s),4);assert.equal(s.phase,'test');
+assert.deepEqual(next(s,{kind:'judged',index:4,verdict:'uncertain'}),s);
+s=next(s,{kind:'judged',index:4,verdict:'incorrect'});assert.equal(s.phase,'practice');assert.deepEqual(s.queue,[3,4]);
+assert.throws(()=>next(s,{kind:'judged',index:3,verdict:'correct'}));
+s=next(s,{kind:'practised',index:3});s=next(s,{kind:'practised',index:4});assert.equal(s.phase,'retest');assert.equal(s.round,2);assert.equal(s.passed.length,2);
+s=next(s,{kind:'judged',index:3,verdict:'correct'});s=next(s,{kind:'judged',index:4,verdict:'incorrect'});assert.deepEqual(s.queue,[4]);
+s=next(s,{kind:'practised',index:4});assert.deepEqual(JSON.parse(JSON.stringify(s)),s);s=next(s,{kind:'judged',index:4,verdict:'correct'});assert.equal(s.phase,'complete');assert.equal(progress(s).remaining,0);
+assert.throws(()=>next(s,{kind:'judged',index:4,verdict:'correct'}));assert.equal(create([1],[1]).phase,'complete');assert.throws(()=>create([1,1]));assert.throws(()=>next(create([1,2]),{kind:'judged',index:2,verdict:'correct'}));
+console.log('PASS full first pass, known-word skipping, only wrong words retried, mandatory training/retest, uncertain retry, stale response rejection, serializable resume, all-word completion');
