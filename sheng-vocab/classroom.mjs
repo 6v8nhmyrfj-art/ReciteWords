@@ -1,7 +1,7 @@
 import {oralAnswer} from './oral-answer.mjs?v=oral-live-20261122';
 import {speak,quiet} from './reading-audio.mjs';
 import {partOfSpeech,example,norm as wordNorm} from './word-context.mjs?v=books-periods-20261106';
-import {backendConfig} from './backend-config.mjs?v=oral-ready-20261122';
+import {backendConfig} from './backend-config.mjs?v=oral-live-20261122';
 const norm=s=>wordNorm(s).replace(/[’‘]/g,"'");
 const E=(tag,text,cls)=>{const n=document.createElement(tag);if(text!=null)n.textContent=text;if(cls)n.className=cls;return n};
 export function selectClassWords(goal,passes,size,from,to){
@@ -102,7 +102,7 @@ export async function classroom(api,options={}){
    const draft=run,current=session.id;let recordingId=null;const call=p=>api('/functions/v1/rw-oral','POST',{session:current,index:q.index,...p});
    const save=async value=>{if(closed||run!==draft||session?.id!==current)return;const previous=[...run.answers];run.answers.push(value);try{persist()}catch(e){run.answers=previous;throw e}drawTest()};
    oralWidget=oralAnswer({container:panel,transcribe:async(blob)=>{const bytes=new Uint8Array(await blob.arrayBuffer());let binary='';for(let i=0;i<bytes.length;i+=8192)binary+=String.fromCharCode(...bytes.subarray(i,i+8192));const r=await call({action:'transcribe',id:crypto.randomUUID(),audio:btoa(binary)});recordingId=r.id;return r},onSubmit:async()=>{
-    if(!recordingId)throw Error('请先录音');const r=await call({action:'grade',id:recordingId});if(r.verdict==='uncertain')throw Error('意思暂时无法确定，请重新说清楚；也可请老师认定。');if(closed||run!==draft||session?.id!==current)return;chime();feedback(panel,r.verdict==='correct');await save('oral:'+r.id);
+    if(!recordingId)throw Error('请先录音');const r=await call({action:'grade',id:recordingId});if(r.verdict==='uncertain')throw Error('意思暂时无法确定，请重新说清楚；也可请老师认定。');if(closed||run!==draft||session?.id!==current)return;chime();feedback(panel,r.verdict==='correct');await new Promise(resolve=>setTimeout(resolve,220));await save('oral:'+r.id);
    },onSkip:()=>save('')});
    return;
   }

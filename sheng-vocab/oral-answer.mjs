@@ -1,5 +1,5 @@
 // Recording input only. The caller owns authenticated transcription and grading.
-export function oralAnswer({container,onSubmit,onSkip,onStatus=()=>{},transcribe,Recognition=globalThis.SpeechRecognition||globalThis.webkitSpeechRecognition,maxSeconds=20}){
+export function oralAnswer({container,onSubmit,onSkip,onStatus=()=>{},transcribe,Recognition=globalThis.SpeechRecognition||globalThis.webkitSpeechRecognition,maxSeconds=20,minMilliseconds=450}){
  const E=(tag,text,cls)=>{const n=document.createElement(tag);n.textContent=text||'';if(cls)n.className=cls;return n};
  const box=E('section','','oral-answer'),answer=E('output','','oral-transcript'),status=E('p','','oral-status'),hold=E('button','按住说中文','oral-hold'),skip=E('button','想不起来','oral-skip'),tray=E('div','','oral-actions'),cancel=E('button','取消'),send=E('button','提交');
  answer.setAttribute('aria-label','识别出的中文答案');status.setAttribute('role','status');tray.hidden=true;tray.append(cancel,send);for(const b of [hold,skip,cancel,send])b.type='button';hold.style.touchAction='none';hold.setAttribute('aria-label','按住说中文，上滑选择取消或提交');
@@ -15,11 +15,11 @@ export function oralAnswer({container,onSubmit,onSkip,onStatus=()=>{},transcribe
   try{
    if(transcribe){
     const stream=await navigator.mediaDevices.getUserMedia({audio:true});if(!current()||phase!=='recording'){stream.getTracks().forEach(t=>t.stop());return}
-    const recorder=new MediaRecorder(stream),chunks=[];const stopTracks=()=>stream.getTracks().forEach(t=>t.stop());
+    const stopTracks=()=>stream.getTracks().forEach(t=>t.stop());let recorder;try{recorder=new MediaRecorder(stream)}catch(e){stopTracks();throw e}const chunks=[],startedAt=performance.now();
     capture={stop(){recorder.stop()},abort(){recorder.onstop=null;if(recorder.state!=='inactive')recorder.stop();stopTracks()}};
     recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
     recorder.onerror=()=>{stopTracks();if(current())fail(Error('录音失败，请重试。'))};
-    recorder.onstop=async()=>{stopTracks();if(!current())return;controller=new AbortController();try{const result=await transcribe(new Blob(chunks,{type:recorder.mimeType}),{signal:controller.signal});if(current())ready(result.text??result)}catch(e){if(current())fail(e)}};recorder.start();
+    recorder.onstop=async()=>{stopTracks();if(!current())return;if(performance.now()-startedAt<minMilliseconds){fail(Error('录音太短，请按住说完中文意思。'));return}controller=new AbortController();try{const result=await transcribe(new Blob(chunks,{type:recorder.mimeType}),{signal:controller.signal});if(current())ready(result.text??result)}catch(e){if(current())fail(e)}};recorder.start();
    }else{
     if(!Recognition)throw Error('语音服务尚未连接，此浏览器无法预览录音。');
     const r=new Recognition();let final='';r.lang='zh-CN';r.continuous=true;r.interimResults=true;
