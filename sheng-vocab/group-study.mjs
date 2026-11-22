@@ -1,12 +1,13 @@
 import {example,norm,partOfSpeech} from './word-context.mjs?v=books-periods-20261106';
 import {audible,quiet,speak} from './reading-audio.mjs';
 export async function groupStudy({t,basic,mode,api,me,app,E,button,mix,active,back,learn,prepareChime,feedback}){
+ const writing=t.category==='writing';
  const suffix=me.id+':'+(t.id||'basic')+':'+mode,key='rw-groups-v3:'+suffix,legacy='rw-groups-v2:'+suffix;
  const source=t.words.map((w,index)=>({w,index,task:t.id||null})),unique=[...new Map(source.map(r=>[norm(r.w.en),r])).values()];
  const id=r=>(r.task||'basic')+':'+r.index,lookup=new Map(unique.map(r=>[id(r),r])),groups=[];
  for(let i=0;i<unique.length;i+=10)groups.push(unique.slice(i,i+10));
  if(!groups.length)return back();
- const signature=JSON.stringify(source);let state,old;
+ const signature=JSON.stringify(source)+(writing?'|writing':'');let state,old;
  try{state=JSON.parse(localStorage.getItem(key));old=JSON.parse(localStorage.getItem(legacy))}catch{}
  if(!state||state.signature!==signature||!Number.isInteger(state.group)||!groups[state.group]){
   state={signature,group:0,learned:[],reviewed:[],review:null,sessionReviewed:[],passed:[],batch:null,answers:[],attempt:null,remedial:null};
@@ -28,7 +29,7 @@ export async function groupStudy({t,basic,mode,api,me,app,E,button,mix,active,ba
   learn({title:label,words:rows.map(r=>r.w)},{list:missing,refs:rows,update:list=>{for(const i of missing)if(!list.includes(i)&&!state.learned.includes(id(rows[i])))state.learned.push(id(rows[i]));save()},done});
  }
  function startLearning(){
-  if(!active())return;const missing=group().filter(r=>!cloze(r));
+  if(!active())return;const missing=group().filter(r=>!writing&&!cloze(r)&&!r.w.source_document);
   if(missing.length){app.replaceChildren(E('h1','需要补充例句'),E('p',missing.map(r=>r.w.en).join('、')),button('返回',back));return}
   if(state.remedial){const rows=rowsFor(state.remedial);return learnRows(rows,'错词重学',()=>review(rows,()=>{state.remedial=null;save();quiz()}))}
   const index=segments().findIndex((_,i)=>!state.reviewed.includes(i));if(index<0)return quiz();
@@ -65,7 +66,7 @@ export async function groupStudy({t,basic,mode,api,me,app,E,button,mix,active,ba
   if(!state.batch){
    const selected=mix(remaining()).slice(0,5),seen=new Set(selected.map(id));
    // Only successful reviews from this saved learning run may fill a short batch.
-   for(const r of mix(rowsFor(state.sessionReviewed))){if(selected.length>=5)break;if(!seen.has(id(r))&&cloze(r)){selected.push(r);seen.add(id(r))}}
+   for(const r of mix(rowsFor(state.sessionReviewed))){if(selected.length>=5)break;if(!seen.has(id(r))&&(writing||cloze(r)||r.w.source_document)){selected.push(r);seen.add(id(r))}}
    state.batch=selected.map(id);state.answers=[];
   }
   if(!state.batch.length)return back();
@@ -73,8 +74,17 @@ export async function groupStudy({t,basic,mode,api,me,app,E,button,mix,active,ba
   state.attempt??=crypto.randomUUID();save();
   if(state.answers.length===state.batch.length)return submit();
   const r=lookup.get(state.batch[state.answers.length]),q=cloze(r),card=E('section',null,'card');
-  app.replaceChildren(button('‹ 返回',back,'back'),E('h1','第 '+(state.group+1)+' 组 · 句子测试'),card);
-  card.append(E('small','第 '+(state.answers.length+1)+' / '+state.batch.length+' 题 · 全对通过'),audible(q.sentence),E('p',q.translation));
+  app.replaceChildren(button('‹ 返回',back,'back'),E('h1','第 '+(state.group+1)+' 组 · '+(writing?'默写测试':q?'句子测试':'词义测试')),card);
+  card.append(E('small','第 '+(state.answers.length+1)+' / '+state.batch.length+' 题 · 全对通过'));
+  if(writing){
+   card.append(E('p',r.w.zh),E('small','看中文默写英文，按本书标准表达填写'));
+   const input=E('textarea');input.rows=r.w.kind==='sentence'?3:2;input.setAttribute('aria-label','英文答案');input.autocomplete='off';input.spellcheck=false;input.setAttribute('autocorrect','off');input.setAttribute('autocapitalize','none');input.maxLength=300;
+   let locked=false;const confirm=button('确认答案',async()=>{if(locked||!active())return;if(!input.value.trim()){input.focus();return}locked=true;prepareChime();
+    const choice=norm(input.value).replace(/[’‘]/g,"'");state.answers.push({task:r.task,index:r.index,choice});save();input.disabled=true;confirm.disabled=true;feedback(confirm,choice===norm(r.w.en).replace(/[’‘]/g,"'"));card.append(E('small','本机已记录 · 本批结束后保存'));
+    await new Promise(resolve=>setTimeout(resolve,180));if(active())quiz();
+   },'primary');input.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();confirm.click()}};card.append(input,confirm);return;
+  }
+  if(q)card.append(audible(q.sentence),E('p',q.translation));else card.append(E('p',r.w.zh),E('small','选择正确的英文'));
   let locked=false;
   for(const opt of options(r)){
    const b=button(opt.w.en,async()=>{if(locked||!active())return;locked=true;prepareChime();

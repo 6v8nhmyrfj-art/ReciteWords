@@ -35,7 +35,7 @@ function feedback(b,ok){
  if(!ok&&!matchMedia('(prefers-reduced-motion: reduce)').matches)b.animate?.([{transform:'translateX(0)'},{transform:'translateX(-5px)'},{transform:'translateX(5px)'},{transform:'translateX(0)'}],{duration:260});
 }
 function mix(items){const a=[...items];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
-async function start(t,mode,groupConfig){if(day()!==loadedDay)return home(tab);document.body.classList.add('study-focus');window.scrollTo(0,0);const stamp=groupConfig?.stamp??++version,key='rw-study:'+me.id+':'+(t.id||'basic');if(mode==='quiz'){const {assessment}=await import('./mastery.mjs?v=focus-batches-20261106');if(stamp!==version)return;return assessment({t,me,basic,app,E,button,mix,api,prepareChime,feedback,active:()=>stamp===version,back:()=>home(tab)});}if(!groupConfig){await refreshKnown();if(!t.words)t=await api.loadBook(t.kind||'task',t);if(stamp!==version)return}let list=t.words.map((_,i)=>i);if(!groupConfig&&(mode==='task'||mode==='self')){const {groupStudy}=await import('./group-study.mjs?v=focus-batches-20261106');if(stamp!==version)return;return groupStudy({t,basic,mode,api,me,app,E,button,mix,active:()=>stamp===version,back:()=>home(tab),prepareChime,feedback,learn:(book,config)=>start(book,mode,{...config,stamp})});}
+async function start(t,mode,groupConfig){if(day()!==loadedDay)return home(tab);document.body.classList.add('study-focus');window.scrollTo(0,0);const stamp=groupConfig?.stamp??++version,key='rw-study:'+me.id+':'+(t.id||'basic');if(mode==='quiz'){const {assessment}=await import('./mastery.mjs?v=focus-batches-20261106');if(stamp!==version)return;return assessment({t,me,basic,app,E,button,mix,api,prepareChime,feedback,active:()=>stamp===version,back:()=>home(tab)});}if(!groupConfig){await refreshKnown();if(!t.words)t=await api.loadBook(t.kind||'task',t);if(stamp!==version)return}let list=t.words.map((_,i)=>i);if(!groupConfig&&(mode==='task'||mode==='self')){const {groupStudy}=await import('./group-study.mjs?v=autumn-books-20261122');if(stamp!==version)return;return groupStudy({t,basic,mode,api,me,app,E,button,mix,active:()=>stamp===version,back:()=>home(tab),prepareChime,feedback,learn:(book,config)=>start(book,mode,{...config,stamp})});}
 if(mode==='task'&&!groupConfig)list=pending(t);if(mode==='self'&&!groupConfig){const n=Number(localStorage.getItem(key))||0;let queue;try{queue=JSON.parse(localStorage.getItem(key+':queue'))}catch{}if(Array.isArray(queue)&&queue.length&&queue.every(x=>Number.isInteger(x)&&x>=0&&x<t.words.length))list=queue;else if(n>0&&n<list.length)list=list.slice(n)}
 if(groupConfig)list=[...groupConfig.list];
 if(mode==='self'&&!groupConfig)list=list.filter(k=>!known.some(x=>x.word===norm(t.words[k].en)&&x.state!=='relearn'));
@@ -62,7 +62,7 @@ card.append(E('small','第 '+(total-list.length+1)+' / '+total+' 词'),audible(w
 const supplied=context?.en;
 const target=norm(w.en);
 const sentence=supplied&&(' '+norm(supplied).replace(/[^a-z0-9'-]+/g,' ')+' ').includes(' '+target+' ')?supplied:'Can you spell “'+w.en+'”?';
-if(mode!=='review'||known.some(x=>x.word===target&&x.state==='relearn'))card.append(audible(sentence));
+if((supplied||!w.source_document)&&(mode!=='review'||known.some(x=>x.word===target&&x.state==='relearn')))card.append(audible(sentence));
 card.append(E('p','选择正确的中文意思'));
 let busy=false,pendingChoice=null,requestId=null;
 const options=choices(w,[...t.words,...basic.words],mix);
