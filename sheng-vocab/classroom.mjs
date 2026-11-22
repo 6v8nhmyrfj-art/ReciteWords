@@ -11,7 +11,7 @@ export function selectClassWords(goal,passes,size,from,to){
  }
  const selected=all.filter(i=>!done.has(i)).slice(0,Number(size));return {selected,pending:selected};
 }
-export async function classroom(api){
+export async function classroom(api,options={}){
  if(document.querySelector('.cr-root'))return;
  if(!document.querySelector('#classroom-css')){const l=E('link');l.id='classroom-css';l.rel='stylesheet';l.href='./classroom.css?v=classroom-20261120';document.head.append(l)}
  const root=E('div',null,'cr-root'),main=E('div',null,'cr-main');root.setAttribute('role','dialog');root.setAttribute('aria-label','课堂过关');root.setAttribute('aria-modal','true');root.append(main);document.body.append(root);
@@ -21,20 +21,21 @@ export async function classroom(api){
  const rpc=(action,p={})=>api('/rest/v1/rpc/rw_classroom','POST',{p_action:action,p_payload:p});
  const btn=(text,fn,cls='cr-soft')=>{const b=E('button',text,cls);b.type='button';b.onclick=async()=>{if(b.disabled)return;b.disabled=true;try{await fn()}catch(e){showError(e)}finally{if(b.isConnected)b.disabled=false}};return b};
  function showError(e){if(closed)return;if(notice?.isConnected)notice.textContent=e.message||String(e);else main.append(E('p',e.message||String(e),'cr-error'))}
- function close(){closed=true;seq++;quiet();root.remove();document.body.style.overflow=oldOverflow;focused?.focus?.()}
+ function close(){closed=true;seq++;quiet();root.remove();document.body.style.overflow=oldOverflow;focused?.focus?.();Promise.resolve(options.onClose?.()).catch(()=>{})}
  function top(title,back=close){const t=E('div',null,'cr-top');t.append(btn('‹ 返回',back,'cr-link'),E('strong',title));return t}
  function status(){notice=E('p',null,'cr-status');notice.setAttribute('role','status');return notice}
  function persist(){try{localStorage.setItem(storageKey,JSON.stringify(run))}catch{throw Error('本机无法保存测试进度，请释放存储空间后重试；已确认的云端过关不会丢失。')}}
  function forget(){try{localStorage.removeItem(storageKey)}catch{}run=null;session=null}
  function feedback(b,ok){b.classList.add(ok?'cr-correct':'cr-wrong');if(!ok)b.classList.add('cr-shake');else if(audio?.state==='running'){const o=audio.createOscillator(),g=audio.createGain(),t=audio.currentTime;o.connect(g);g.connect(audio.destination);o.frequency.value=880;g.gain.setValueAtTime(.001,t);g.gain.exponentialRampToValueAtTime(.09,t+.01);g.gain.exponentialRampToValueAtTime(.001,t+.22);o.start();o.stop(t+.23)}}
  function chime(){try{const C=window.AudioContext||window.webkitAudioContext;if(C){audio??=new C();audio.resume().catch(()=>{})}}catch{}}
- async function init(){main.replaceChildren(top('课堂过关'),E('p','正在加载课堂数据…'));catalog=await rpc('catalog');if(closed)return;teacher=catalog.role==='teacher';storageKey='rw-classroom-v1:'+backendConfig.environment+':'+catalog.member.user_id;
+ async function init(){main.replaceChildren(top('课堂过关'),E('p','正在加载课堂数据…'));catalog=await rpc('catalog');if(closed)return;teacher=catalog.role==='teacher';storageKey='rw-classroom-v1:'+backendConfig.environment+':'+catalog.member.user_id+(options.weeklyItem?':weekly:'+options.weeklyItem:'');
   try{run=JSON.parse(localStorage.getItem(storageKey));if(!run?.session)run=null}catch{run=null}
+  if(options.weeklyItem){if(run){await resumeRun();return}session=await api('/rest/v1/rpc/rw_weekly','POST',{p_action:'begin',p_payload:{id:crypto.randomUUID(),item:options.weeklyItem}});run={session:session.id,offset:session.next_offset,answers:[],pending:null,result:null,title:options.title||'班级任务',studentName:catalog.member.display_name};persist();drawTest();return}
   if(teacher){cohort=catalog.members.find(m=>m.cohort)?.cohort||'';student=catalog.members.find(m=>m.cohort===cohort)?.user_id||'';library=catalog.goals.find(g=>g.cohort===cohort)?.library||catalog.libraries[0]?.id||''}
   else{cohort=catalog.member.cohort;student=catalog.member.user_id;library=catalog.goals[0]?.library||''}
   await load();
  }
- async function load(){const stamp=++seq;working=true;goal=catalog.goals.find(g=>g.cohort===cohort&&g.library===library);detail=null;render();
+ async function load(){if(options.weeklyItem){close();return}const stamp=++seq;working=true;goal=catalog.goals.find(g=>g.cohort===cohort&&g.library===library);detail=null;render();
   try{if(goal&&student){const d=await rpc('detail',{goal:goal.id,student,mode});if(stamp!==seq||closed)return;detail=d;goal={...goal,...d.goal};from=Math.max(goal.start,Math.min(from,goal.end-9));to=Math.max(from+9,Math.min(to,goal.end));}}
   finally{if(stamp===seq&&!closed){working=false;render()}}
  }
@@ -79,7 +80,7 @@ export async function classroom(api){
   const id=crypto.randomUUID();session=await rpc('begin',{id,goal:goal.id,student,mode,revision:goal.revision,size,start:from,end:to});if(closed)return;
   run={session:id,offset:session.next_offset,answers:[],pending:null,result:null,title:goal.title,studentName:teacher?catalog.members.find(m=>m.user_id===student)?.display_name:catalog.member.display_name};try{persist()}catch(e){session=null;run=null;throw e}drawTest();
  }
- async function resumeRun(){try{session=await rpc('resume',{session:run.session});if(closed)return;if(session.next_offset!==run.offset){run.offset=session.next_offset;run.answers=[];run.pending=null;run.result=null;persist()}drawTest()}catch(e){session=null;render();notice.textContent=e.message;main.append(btn('结束此轮，保留已过关记录',()=>{forget();return load()},'cr-link'))}}
+ async function resumeRun(){try{session=await rpc('resume',{session:run.session});if(closed)return;if(session.next_offset!==run.offset){run.offset=session.next_offset;run.answers=[];run.pending=null;run.result=null;persist()}drawTest()}catch(e){session=null;if(options.weeklyItem){main.replaceChildren(top('班级任务'),E('p',e.message),btn('重新进入任务',()=>{forget();return init()},'cr-primary'));return}render();notice.textContent=e.message;main.append(btn('结束此轮，保留已过关记录',()=>{forget();return load()},'cr-link'))}}
  function leaveTest(){quiet();session=null;return load()}
  function currentBatch(){return session.questions.slice(run.offset,run.offset+5)}
  function drawTest(){if(closed||!session||!run)return;quiet();main.className='cr-main cr-test';main.replaceChildren(top(run.studentName+' · '+run.title,leaveTest));

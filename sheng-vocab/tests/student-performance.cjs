@@ -6,6 +6,7 @@ const words=JSON.parse(fs.readFileSync('class-ui.mjs','utf8').match(/const basic
 await p.evaluate(async words=>{
 const {createDataClient}=await import('/data-client.mjs'),{student}=await import('/student.mjs');window.requests=[];window.basic={title:'基础词汇',words};
 const transport=async(path,method,body)=>{requests.push({path,method,body});
+ if(path.includes('rw_weekly'))return {week:'2026-11-16',today:'2026-11-22',cohort:'测试班',targets:[],items:[]};
  if(path.includes('rw_practice'))return new Promise((resolve,reject)=>window.answerRequest={resolve,reject});
  if(path.includes('rw_student_summary'))return {today:0,days:0,accuracy:null,cohort:'测试班'};
  if(path.includes('rw_passed_periods'))return Object.fromEntries(['day','week','month','year'].map(k=>[k,{total:0,points:[{day:'2026-11-06T00:00:00',total:0}],start:'2026-11-06',end:'2026-11-06'}]));
@@ -16,15 +17,15 @@ const transport=async(path,method,body)=>{requests.push({path,method,body});
  return [];
 };window.client=createDataClient(transport,'test-user');await student(client,{id:'test-user'},{display_name:'测试学生'},basic,()=>{});
 },words);
-assert(!modules.some(x=>/mastery|student-tools|group-study|student-shelf/.test(x)));assert.equal(await p.evaluate(()=>requests.length),5);
+assert(!modules.some(x=>/mastery|student-tools|group-study|student-shelf/.test(x)));assert.equal(await p.evaluate(()=>requests.length),1);
 const tab=label=>p.locator('nav').getByRole('button',{name:label,exact:false}).click();
-await tab('自主学习');await p.getByRole('button',{name:'＋ 添加单词书'}).waitFor();assert.equal(await p.evaluate(()=>requests.length),7);assert(!modules.some(x=>/mastery|student-tools|group-study/.test(x)));
-await tab('测单词');await p.locator('.book-compact').waitFor();assert.equal(await p.evaluate(()=>requests.length),8);
+await tab('自主学习');await p.getByRole('button',{name:'＋ 添加单词书'}).waitFor();assert.equal(await p.evaluate(()=>requests.length),5);assert(!modules.some(x=>/mastery|student-tools|group-study/.test(x)));
+await tab('测单词');await p.locator('.book-compact').waitFor();assert.equal(await p.evaluate(()=>requests.length),6);
 await tab('我的');await p.getByRole('heading',{name:'最近学习'}).waitFor();assert.equal(await p.evaluate(()=>requests.length),12);
-for(const label of ['班级任务','自主学习','测单词','我的']){await tab(label);await p.waitForTimeout(80)}assert.equal(await p.evaluate(()=>requests.length),12);
+for(const label of ['班级任务','自主学习','测单词','我的']){await tab(label);await p.waitForTimeout(80)}assert.equal(await p.evaluate(()=>requests.length),13);
 await tab('自主学习');await p.getByRole('button',{name:/测试词书 · Unit 1/}).click();
 await p.locator('.option').first().waitFor();assert(!(await p.locator('nav').isVisible()));assert(await p.evaluate(()=>document.documentElement.scrollHeight<=innerHeight+2));for(const size of [{width:320,height:568},{width:390,height:780}]){await p.setViewportSize(size);assert(await p.evaluate(()=>document.documentElement.scrollHeight<=innerHeight+2));assert(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth))}const opt=p.locator('.option').filter({hasText:words[0].zh});await opt.click();assert.equal(await opt.getAttribute('data-feedback'),'correct');assert(await p.getByText('正在保存…',{exact:true}).isVisible());assert(await p.getByText(words[0].en,{exact:true}).isVisible());
 await p.evaluate(()=>answerRequest.reject(Error('模拟断网')));await p.getByText('尚未保存，请点刚才的选项重试。',{exact:true}).waitFor();await opt.click();await p.evaluate(()=>answerRequest.resolve(true));await p.getByText(words[1].en,{exact:true}).waitFor();
 const ids=await p.evaluate(()=>requests.filter(x=>x.path.includes('rw_practice')).map(x=>x.body.p_id));assert.equal(ids.length,2);assert.equal(ids[0],ids[1]);assert.equal(await p.evaluate(()=>client.pendingCount()),0);assert.deepEqual(errors,[]);
-console.log('PASS initial 5 calls; first full tab cycle 12; repeated cycle +0; lazy modules/book content; immediate feedback; failed-save same-ID retry; next word after confirmation');
+console.log('PASS initial 1 call; first full tab cycle 12; repeated cycle +1 fresh weekly summary; lazy modules/book content; immediate feedback; failed-save same-ID retry; next word after confirmation');
 }finally{await browser.close()}})().catch(e=>{console.error(e);process.exit(1)})

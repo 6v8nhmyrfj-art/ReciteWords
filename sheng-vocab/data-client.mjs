@@ -30,6 +30,7 @@ export function createDataClient(transport,userId,{storage=globalThis.localStora
  }
  async function call(path,method='GET',body){
   // Classroom reads must see a teacher's latest recognition/range without invalidating other tabs.
+  if(path==='/rest/v1/rpc/rw_weekly'&&body?.p_action==='list')return transport(path,method,body);
   if(path==='/rest/v1/rpc/rw_classroom'&&['catalog','detail','resume'].includes(body?.p_action))return transport(path,method,body);
   if(day()!==calendar){calendar=day();invalidate()}
   const rpc=path.split('/').pop(),read=method==='GET'||(method==='POST'&&readRPC.has(rpc));
