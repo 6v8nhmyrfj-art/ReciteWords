@@ -1,6 +1,7 @@
+import {oralAnswer} from './oral-answer.mjs?v=oral-live-20261122';
 import {speak,quiet} from './reading-audio.mjs';
 import {partOfSpeech,example,norm as wordNorm} from './word-context.mjs?v=books-periods-20261106';
-import {backendConfig} from './backend-config.mjs?v=classroom-20261120';
+import {backendConfig} from './backend-config.mjs?v=oral-ready-20261122';
 const norm=s=>wordNorm(s).replace(/[’‘]/g,"'");
 const E=(tag,text,cls)=>{const n=document.createElement(tag);if(text!=null)n.textContent=text;if(cls)n.className=cls;return n};
 export function selectClassWords(goal,passes,size,from,to){
@@ -14,15 +15,16 @@ export function selectClassWords(goal,passes,size,from,to){
 export const classroomSampleSize=n=>n<10?n:Math.ceil(n/2);
 export async function classroom(api,options={}){
  if(document.querySelector('.cr-root'))return;
- if(!document.querySelector('#classroom-css')){const l=E('link');l.id='classroom-css';l.rel='stylesheet';l.href='./classroom.css?v=classroom-20261120';document.head.append(l)}
+ if(!document.querySelector('#classroom-css')){const l=E('link');l.id='classroom-css';l.rel='stylesheet';l.href='./classroom.css?v=oral-live-20261122';document.head.append(l)}
  const root=E('div',null,'cr-root'),main=E('div',null,'cr-main');root.setAttribute('role','dialog');root.setAttribute('aria-label','课堂过关');root.setAttribute('aria-modal','true');root.append(main);document.body.append(root);
  const oldOverflow=document.body.style.overflow;document.body.style.overflow='hidden';const focused=document.activeElement;
  let catalog,teacher=false,cohort='',student='',library='',goal,detail,mode='reading',size='10',from=1,to=10,seq=0,closed=false,working=false;
- let session=null,run=null,storageKey='',audio,notice;
+ let session=null,run=null,storageKey='',audio,notice,oralWidget;
+ const disposeOral=()=>{oralWidget?.dispose();oralWidget=null};
  const rpc=(action,p={})=>api('/rest/v1/rpc/rw_classroom','POST',{p_action:action,p_payload:p});
  const btn=(text,fn,cls='cr-soft')=>{const b=E('button',text,cls);b.type='button';b.onclick=async()=>{if(b.disabled)return;b.disabled=true;try{await fn()}catch(e){showError(e)}finally{if(b.isConnected)b.disabled=false}};return b};
  function showError(e){if(closed)return;if(notice?.isConnected)notice.textContent=e.message||String(e);else main.append(E('p',e.message||String(e),'cr-error'))}
- function close(){closed=true;seq++;quiet();root.remove();document.body.style.overflow=oldOverflow;focused?.focus?.();Promise.resolve(options.onClose?.()).catch(()=>{})}
+ function close(){disposeOral();closed=true;seq++;quiet();root.remove();document.body.style.overflow=oldOverflow;focused?.focus?.();Promise.resolve(options.onClose?.()).catch(()=>{})}
  function top(title,back=close){const t=E('div',null,'cr-top');t.append(btn('‹ 返回',back,'cr-link'),E('strong',title));return t}
  function status(){notice=E('p',null,'cr-status');notice.setAttribute('role','status');return notice}
  function persist(){try{localStorage.setItem(storageKey,JSON.stringify(run))}catch{throw Error('本机无法保存测试进度，请释放存储空间后重试；已确认的云端过关不会丢失。')}}
@@ -42,7 +44,7 @@ export async function classroom(api,options={}){
  }
  function select(label,values,value,onchange){const l=E('label',label),s=E('select');s.setAttribute('aria-label',label);values.forEach(([v,t])=>{const o=E('option',t);o.value=v;s.append(o)});s.value=value;s.onchange=()=>Promise.resolve(onchange(s.value)).catch(showError);l.append(s);return l}
  function number(label,value,oninput){const l=E('label',label),n=E('input');n.type='number';n.inputMode='numeric';n.value=value;n.setAttribute('aria-label',label);n.oninput=()=>oninput(Number(n.value));l.append(n);return l}
- function modeButtons(){const box=E('div',null,'cr-modes');for(const [m,title,sub] of [['reading','英翻中','看英文 · 选中文'],['writing','中翻英','看中文 · 默写英文']]){const b=btn('',()=>{mode=m;return load()},m===mode?'cr-mode cr-on':'cr-mode');b.setAttribute('aria-pressed',String(m===mode));b.append(E('b',title),E('small',sub));box.append(b)}return box}
+ function modeButtons(){const box=E('div',null,'cr-modes');for(const [m,title,sub] of [['reading','英翻中',backendConfig.oralEnabled?'看英文 · 说中文':'看英文 · 选中文'],['writing','中翻英','看中文 · 默写英文']]){const b=btn('',()=>{mode=m;return load()},m===mode?'cr-mode cr-on':'cr-mode');b.setAttribute('aria-pressed',String(m===mode));b.append(E('b',title),E('small',sub));box.append(b)}return box}
  function render(){if(closed||session)return;main.className='cr-main';main.replaceChildren(top(teacher?'教师版 · 课堂过关':'我的课堂过关'));
   const identity=E('div',null,'cr-identity');identity.append(E('h1',teacher?'课堂过关':catalog.member.display_name),E('small',teacher?'选学生进行课堂测试或认定过关':cohort||'待分班'));main.append(identity);main.firstChild.append(btn('刷新',async()=>{catalog=await rpc('catalog');return load()},'cr-link'));
   const sources=E('section',null,'cr-panel');
@@ -80,14 +82,14 @@ export async function classroom(api,options={}){
  function resumeLabel(){return '未完成：'+(run.studentName||'我')+' · '+(run.title||'课堂测试')+' · 已答 '+((run.offset||0)+(run.answers?.length||0))+' 题'}
  async function restartCurrent(){if(working||!goal||!detail)return;const x=selectClassWords(goal,detail.passes,size,from,to);if(x.error||!x.pending.length){notice.textContent=x.error||'当前范围已过关，无需重新抽查';return}forget();await load();return begin()}
  async function begin(){if(run)return resumeRun();if(working)return;const x=selectClassWords(goal,detail.passes,size,from,to);if(x.error||!x.pending.length)return;
-  const id=crypto.randomUUID();session=await rpc('begin',{id,goal:goal.id,student,mode,revision:goal.revision,policy:'sampling90',size,start:from,end:to});if(closed)return;
+  const id=crypto.randomUUID();session=await rpc('begin',{id,goal:goal.id,student,mode,revision:goal.revision,policy:'sampling90',response_mode:mode==='reading'&&backendConfig.oralEnabled?'oral':'standard',size,start:from,end:to});if(closed)return;
   run={session:id,offset:session.next_offset,answers:[],pending:null,result:null,title:goal.title,selection:{size,from,to,cohort,library,student,mode},studentName:teacher?catalog.members.find(m=>m.user_id===student)?.display_name:catalog.member.display_name};try{persist()}catch(e){session=null;run=null;throw e}drawTest();
  }
  async function resumeRun(){try{session=await rpc('resume',{session:run.session});if(closed)return;if(!options.weeklyItem){const target=catalog.goals.find(g=>g.id===session.goal);if(target){cohort=target.cohort;library=target.library;student=session.student;mode=session.mode;if(run.selection){size=run.selection.size;from=run.selection.from;to=run.selection.to}else{size='custom';from=Math.min(...(session.selected_indices||session.indices));to=Math.max(...(session.selected_indices||session.indices))}}}if(session.assessment_version===2&&session.final_result){run.result=session.final_result;persist();drawTest();return}if(session.next_offset!==run.offset){run.offset=session.next_offset;run.answers=[];run.pending=null;run.result=null;persist()}drawTest()}catch(e){session=null;if(options.weeklyItem){main.replaceChildren(top('班级任务'),E('p',e.message),btn('重新进入任务',()=>{forget();return init()},'cr-primary'));return}render();notice.textContent=e.message;main.append(btn('结束此轮，保留已过关记录',()=>{forget();return load()},'cr-link'))}}
- async function changeTarget(){quiet();forget();if(options.weeklyItem)return close();await load();main.querySelector('select')?.focus();}
- function leaveTest(){quiet();session=null;return load()}
+ async function changeTarget(){disposeOral();quiet();forget();if(options.weeklyItem)return close();await load();main.querySelector('select')?.focus();}
+ function leaveTest(){disposeOral();quiet();session=null;return load()}
  function currentBatch(){return session.assessment_version===2?session.questions:session.questions.slice(run.offset,run.offset+5)}
- function drawTest(){if(closed||!session||!run)return;quiet();main.className='cr-main cr-test';main.replaceChildren(top(run.studentName+' · '+run.title,leaveTest));
+ function drawTest(){if(closed||!session||!run)return;disposeOral();quiet();main.className='cr-main cr-test';main.replaceChildren(top(run.studentName+' · '+run.title,leaveTest));
   if(!options.weeklyItem&&!run.result)main.firstChild.append(btn('更换测试目标',changeTarget,'cr-link'));
   if(run.result)return resultView();if(run.offset>=session.questions.length){main.append(E('section','本轮已全部过关','cr-panel'),btn('返回课堂',()=>{forget();return load()},'cr-primary'));return}
   if(run.answers.length>=currentBatch().length)return submit();
@@ -96,6 +98,14 @@ export async function classroom(api,options={}){
   const progress=E('progress');progress.max=session.questions.length;progress.value=run.offset+run.answers.length;panel.append(progress);
   panel.append(E('h1',writing?w.zh:w.en),E('small',partOfSpeech(w)));
   const ex=example(w),sentence=writing?(w.test_translation||w.translation||ex?.zh):(w.test_example||w.example||ex?.en);if(sentence)panel.append(E('p',sentence,'cr-sentence'));
+  if(!writing&&session.response_mode==='oral'){
+   const draft=run,current=session.id;let recordingId=null;const call=p=>api('/functions/v1/rw-oral','POST',{session:current,index:q.index,...p});
+   const save=async value=>{if(closed||run!==draft||session?.id!==current)return;const previous=[...run.answers];run.answers.push(value);try{persist()}catch(e){run.answers=previous;throw e}drawTest()};
+   oralWidget=oralAnswer({container:panel,transcribe:async(blob)=>{const bytes=new Uint8Array(await blob.arrayBuffer());let binary='';for(let i=0;i<bytes.length;i+=8192)binary+=String.fromCharCode(...bytes.subarray(i,i+8192));const r=await call({action:'transcribe',id:crypto.randomUUID(),audio:btoa(binary)});recordingId=r.id;return r},onSubmit:async()=>{
+    if(!recordingId)throw Error('请先录音');const r=await call({action:'grade',id:recordingId});if(r.verdict==='uncertain')throw Error('意思暂时无法确定，请重新说清楚；也可请老师认定。');if(closed||run!==draft||session?.id!==current)return;chime();feedback(panel,r.verdict==='correct');await save('oral:'+r.id);
+   },onSkip:()=>save('')});
+   return;
+  }
   const hint=E('p',null,'cr-status');hint.setAttribute('role','status');let busy=false;
   const choose=async(value,b)=>{if(busy)return;const current=session.id;busy=true;chime();quiet();const ok=[w.en,...(writing&&Array.isArray(w.alternatives)?w.alternatives:[])].some(x=>norm(x)===norm(value)&&norm(value)!=='');
    try{const previous=[...run.answers];run.answers.push(value);try{persist()}catch(e){run.answers=previous;throw e}panel.querySelectorAll('button,input').forEach(n=>n.disabled=true);feedback(b,ok);hint.textContent=ok?'答对！本轮结束后统一判定过关。':'正确答案：'+w.en+' · '+w.zh+'；本轮结束后查看结果。';await new Promise(r=>setTimeout(r,ok?220:850));if(!closed&&session?.id===current)drawTest()}catch(e){busy=false;hint.textContent=e.message}

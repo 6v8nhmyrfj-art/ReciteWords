@@ -3,6 +3,8 @@ export const backendConfig=Object.freeze({
  provider:'supabase',
  baseUrl:'https://nnooeadfgsvbddrjwyan.supabase.co',
  publishableKey:'sb_publishable_NAlh-hkQ2852o8ElBw06ZQ_M-kIQ0pY',
+ // Enable only after real Cloudflare transcription and semantic grading are verified.
+ oralEnabled:false,
  contractVersion:1,
  environment:'nnooeadfgsvbddrjwyan',
 });

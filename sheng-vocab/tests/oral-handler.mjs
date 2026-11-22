@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import {oralHandler} from '../server/oral-handler.mjs';
+const env=k=>({SUPABASE_URL:'https://db.test',SUPABASE_SERVICE_ROLE_KEY:'private'}[k]);
+let calls=0;const handler=oralHandler(env,async url=>{calls++;if(url.endsWith('/auth/v1/user'))return Response.json({id:'u'});if(url.includes('rw_members?'))return Response.json([{role:'student',password_changed:true}]);throw Error('unexpected request')});
+assert.equal((await handler(new Request('https://test',{method:'POST',body:'{}'}))).status,401);assert.equal(calls,0);
+assert.equal((await handler(new Request('https://test',{method:'POST',headers:{Origin:'https://evil.test'},body:'{}'}))).status,403);
+const request=body=>new Request('https://test',{method:'POST',headers:{Authorization:'Bearer test','Content-Type':'application/json'},body:JSON.stringify(body)});
+assert.deepEqual(await (await handler(request({action:'health'}))).json(),{configured:false});
+assert.equal((await handler(request({action:'grade',session:'fake',index:1}))).status,400);
+const denied=oralHandler(env,async()=>new Response('',{status:401}));assert.equal((await denied(request({action:'health'}))).status,401);
+console.log('PASS missing auth, invalid auth, wrong origin, config health and malformed session rejection');
