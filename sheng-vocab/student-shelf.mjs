@@ -1,4 +1,4 @@
-import {bookFilter} from './book-filter.mjs?v=book-filter-20261122';
+import {bookFilter} from './book-filter.mjs?v=common-books-20261122';
 export async function shelf({api,app,E,button,row,active,start,basic,due,review,preferredGrade}){
  const [catalog,saved]=await Promise.all([
   api('/rest/v1/rpc/rw_library_catalog','POST',{}),

@@ -1,5 +1,5 @@
 import {classProgress,classRosterProgress} from './class-progress.mjs?v=class-progress-20261122';
-import {bookFilter} from './book-filter.mjs?v=book-filter-20261122';
+import {bookFilter} from './book-filter.mjs?v=common-books-20261122';
 import {parseVocabulary} from './vocabulary-import.mjs?v=mastery-20261106';
 export async function teacher(api,logout,enroll){
  const css=document.createElement('link');css.rel='stylesheet';css.href='./teacher.css';document.head.append(css);
