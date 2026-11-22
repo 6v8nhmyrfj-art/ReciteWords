@@ -1,3 +1,4 @@
+import {localGrade} from './local-grade.mjs';
 import {cloudflareAI} from './cloudflare-ai.mjs';
 const uuid=s=>typeof s==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 export function oralHandler(env,fetchImpl=fetch){
@@ -21,13 +22,13 @@ export function oralHandler(env,fetchImpl=fetch){
   if(!session||session.actor!==user.id||session.response_mode!=='oral'||session.mode!=='reading'||session.final_result)return reply({error:'测试无效或已结束'},403);
   const [goal]=await db('rw_class_goals?id=eq.'+session.goal+'&select=revision');if(goal?.revision!==session.revision)return reply({error:'目标已更新，请重新开始'},409);
   const question=session.questions.find(q=>q.index===p.index);if(!question)return reply({error:'题目不在本轮测试内'},403);
-  const ai=cloudflareAI({accountId:env('CLOUDFLARE_ACCOUNT_ID'),apiToken:env('CLOUDFLARE_API_TOKEN'),gradingModel:model,fetchImpl});
+  const getAI=()=>cloudflareAI({accountId:env('CLOUDFLARE_ACCOUNT_ID'),apiToken:env('CLOUDFLARE_API_TOKEN'),gradingModel:model,fetchImpl});
   if(p.action==='transcribe'){
    if(!uuid(p.id)||typeof p.audio!=='string'||p.audio.length>2800000)return reply({error:'录音参数无效'},400);
    const [old]=await db('rw_oral_answers?id=eq.'+p.id);if(old){if(old.actor!==user.id||old.session!==p.session||old.question_index!==p.index)return reply({error:'录音编号冲突'},409);return reply({id:old.id,text:old.transcript})}
    if(!await db('rpc/rw_oral_take_quota','POST',{p_actor:user.id}))return reply({error:'今日语音调用次数已达上限'},429);
    let audio;try{audio=Uint8Array.from(atob(p.audio),c=>c.charCodeAt(0))}catch{return reply({error:'录音格式错误'},400)}
-   const {text}=await ai.transcribe(audio);await db('rw_oral_answers','POST',{id:p.id,session:p.session,actor:user.id,question_index:p.index,transcript:text});return reply({id:p.id,text});
+   const {text}=await getAI().transcribe(audio);await db('rw_oral_answers','POST',{id:p.id,session:p.session,actor:user.id,question_index:p.index,transcript:text});return reply({id:p.id,text});
   }
   if(p.action==='grade'||p.action==='typed'){
    if(p.action==='typed'){
@@ -40,8 +41,9 @@ export function oralHandler(env,fetchImpl=fetch){
    let [answer]=await db('rw_oral_answers?id=eq.'+p.id);if(!answer||answer.actor!==user.id||answer.session!==p.session||answer.question_index!==p.index)return reply({error:'答案不属于本题'},403);
    if(!answer.verdict){
     if(!await db('rpc/rw_oral_take_quota','POST',{p_actor:user.id}))return reply({error:'今日语音调用次数已达上限'},429);
-    const w=question.word,result=await ai.grade({word:w.en,meaning:w.zh,example:w.example||w.test_example||'',answer:answer.transcript});
-    await db('rw_oral_answers?id=eq.'+p.id+'&verdict=is.null','PATCH',{verdict:result.verdict,reason:result.reason,model});[answer]=await db('rw_oral_answers?id=eq.'+p.id);
+    const w=question.word,input={word:w.en,meaning:w.zh,example:w.example||w.test_example||'',answer:answer.transcript};
+    const local=localGrade(input),result=local||await getAI().grade(input);
+    await db('rw_oral_answers?id=eq.'+p.id+'&verdict=is.null','PATCH',{verdict:result.verdict,reason:result.reason,model:local?local.model:model});[answer]=await db('rw_oral_answers?id=eq.'+p.id);
    }
    return reply({id:answer.id,verdict:answer.verdict,reason:answer.reason});
   }

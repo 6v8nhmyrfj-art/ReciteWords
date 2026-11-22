@@ -14,8 +14,9 @@ const handler=oralHandler(env,async(url,opts={})=>{const data=opts.body?JSON.par
 });
 const request=p=>new Request('https://test',{method:'POST',headers:{Authorization:'Bearer test'},body:JSON.stringify({action:'typed',session:sid,index:1,id,...p})});
 assert.equal((await handler(request({text:' '}))).status,400);
-const r=await handler(request({text:'变得更好'}));assert.equal(r.status,200);assert.equal((await r.json()).verdict,'correct');assert.equal(record.transcript,'变得更好');assert.equal(modelCalls,1);
-assert.equal((await handler(request({text:'变得更好'}))).status,200);assert.equal(modelCalls,1);
+const r=await handler(request({text:'变得更好'}));assert.equal(r.status,200);assert.equal((await r.json()).verdict,'correct');assert.equal(record.transcript,'变得更好');assert.equal(modelCalls,0);
+assert.equal((await handler(request({text:'变得更好'}))).status,200);assert.equal(modelCalls,0);
 assert.equal((await handler(request({text:'另一个答案'}))).status,409);
 record.actor='other';assert.equal((await handler(request({text:'变得更好'}))).status,409);
-console.log('PASS typed answers bypass ASR, server grading, retry idempotency, changed text and foreign answer rejection');
+record=undefined;const fallback=await handler(request({text:'让事物向好的方向发展'}));assert.equal(fallback.status,200);assert.equal(modelCalls,1);assert.equal(record.model,'@cf/google/gemma-4-26b-a4b-it');
+console.log('PASS local fast path without cloud calls, semantic fallback, typed answers bypass ASR, server grading, retry idempotency, changed text and foreign answer rejection');
