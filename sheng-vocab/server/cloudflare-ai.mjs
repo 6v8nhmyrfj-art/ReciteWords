@@ -8,10 +8,10 @@ export function cloudflareAI({accountId,apiToken,gradingModel,fetchImpl=fetch}){
   const data=await r.json();if(data.success!==true||!data.result)throw Error('语音服务返回异常，请重试。');return data.result;
  }
  return {
-  async transcribe(bytes){
+  async transcribe(bytes,language='zh'){
    if(!(bytes instanceof Uint8Array)||!bytes.length||bytes.length>2*1024*1024)throw Error('录音为空或过大，请重新录音。');
    let binary='';for(let i=0;i<bytes.length;i+=8192)binary+=String.fromCharCode(...bytes.subarray(i,i+8192));
-   const r=await run('@cf/openai/whisper-large-v3-turbo',{audio:btoa(binary),language:'zh',task:'transcribe',vad_filter:true,condition_on_previous_text:false});
+   const r=await run('@cf/openai/whisper-large-v3-turbo',{audio:btoa(binary),language,task:'transcribe',vad_filter:true,condition_on_previous_text:false});
    const text=(r.text||r.transcription_info?.text||'').trim();if(!text||text.length>500)throw Error('没有识别到有效答案，请重新录音。');return {text};
   },
   async grade({word,meaning,example,answer}){
