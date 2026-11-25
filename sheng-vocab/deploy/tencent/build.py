@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """Build a static-only release. API configuration must be supplied explicitly."""
-import argparse,pathlib,json,re,hashlib,shutil,tarfile
+import argparse,pathlib,json,re,hashlib,shutil,tarfile,base64
 p=argparse.ArgumentParser();p.add_argument('--config',required=True);p.add_argument('--output',required=True);a=p.parse_args()
 root=pathlib.Path(__file__).resolve().parents[2];out=pathlib.Path(a.output).resolve();cfg=json.loads(pathlib.Path(a.config).read_text())
 for k in ('baseUrl','publishableKey','environment'):assert isinstance(cfg.get(k),str) and cfg[k],k+' required'
 assert cfg['baseUrl'].startswith('https://'),'HTTPS required'
 assert 'service_role' not in json.dumps(cfg) and not cfg['publishableKey'].startswith('sb_secret_'),'Public key only'
+if cfg['publishableKey'].startswith('eyJ'):
+ payload=cfg['publishableKey'].split('.')[1]
+ assert json.loads(base64.urlsafe_b64decode(payload+'='*(-len(payload)%4))).get('role')=='anon','Only anon JWT keys may be published'
 assert not out.exists(),'Choose a new output directory'
 out.mkdir(parents=True);site=out/'site';site.mkdir()
 for f in root.iterdir():

@@ -2,14 +2,15 @@ import {localGrade} from './local-grade.mjs';
 import {cloudflareAI} from './cloudflare-ai.mjs';
 const uuid=s=>typeof s==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 export function oralHandler(env,fetchImpl=fetch){
+ const allowedOrigins=new Set((env('ALLOWED_ORIGINS')||'https://6v8nhmyrfj-art.github.io,https://shaneteachesenglish.icu,https://www.shaneteachesenglish.icu').split(',').map(s=>s.trim()));
  const base=env('SUPABASE_URL'),key=env('SUPABASE_SERVICE_ROLE_KEY')||Object.values(JSON.parse(env('SUPABASE_SECRET_KEYS')||'{}'))[0];
  const model='@cf/google/gemma-4-26b-a4b-it';
  async function db(path,method='GET',body,extra={}){const r=await fetchImpl(base+'/rest/v1/'+path,{method,headers:{apikey:key,Authorization:'Bearer '+key,'Content-Type':'application/json',...extra},body:body===undefined?undefined:JSON.stringify(body)});if(!r.ok)throw Error('数据保存失败，请重试。');const t=await r.text();return t?JSON.parse(t):null}
  return async req=>{
  const origin=req.headers.get('Origin'),headers={'Content-Type':'application/json','Cache-Control':'no-store','Vary':'Origin'};
- if(origin==='https://6v8nhmyrfj-art.github.io'){headers['Access-Control-Allow-Origin']=origin;headers['Access-Control-Allow-Headers']='authorization,apikey,content-type';headers['Access-Control-Allow-Methods']='POST,OPTIONS'}
+ if(allowedOrigins.has(origin)){headers['Access-Control-Allow-Origin']=origin;headers['Access-Control-Allow-Headers']='authorization,apikey,content-type';headers['Access-Control-Allow-Methods']='POST,OPTIONS'}
  const reply=(body,status=200)=>new Response(JSON.stringify(body),{status,headers});
- if(origin&&origin!=='https://6v8nhmyrfj-art.github.io')return reply({error:'来源不允许'},403);
+ if(origin&&!allowedOrigins.has(origin))return reply({error:'来源不允许'},403);
  if(req.method==='OPTIONS')return new Response(null,{status:204,headers});if(req.method!=='POST')return reply({error:'仅支持POST'},405);
  try{
   const auth=req.headers.get('Authorization');if(!auth?.startsWith('Bearer '))return reply({error:'请先登录'},401);

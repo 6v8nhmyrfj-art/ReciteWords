@@ -1,8 +1,9 @@
 import {cloudflareAI} from './cloudflare-ai.mjs';
+const allowedOrigins=new Set((Deno.env.get('ALLOWED_ORIGINS')||'https://6v8nhmyrfj-art.github.io,https://shaneteachesenglish.icu,https://www.shaneteachesenglish.icu').split(',').map(s=>s.trim()));
 Deno.serve(async req=>{
- const origin=req.headers.get('Origin'),headers={'Content-Type':'application/json','Cache-Control':'no-store',...(origin==='https://6v8nhmyrfj-art.github.io'?{'Access-Control-Allow-Origin':origin,'Access-Control-Allow-Headers':'authorization,apikey,content-type','Access-Control-Allow-Methods':'POST,OPTIONS'}:{})};
+ const origin=req.headers.get('Origin'),headers={'Content-Type':'application/json','Cache-Control':'no-store',...(allowedOrigins.has(origin)?{'Access-Control-Allow-Origin':origin,'Access-Control-Allow-Headers':'authorization,apikey,content-type','Access-Control-Allow-Methods':'POST,OPTIONS'}:{})};
  const reply=(x,status=200)=>new Response(JSON.stringify(x),{status,headers});
- if(origin&&origin!=='https://6v8nhmyrfj-art.github.io')return reply({error:'来源不允许'},403);
+ if(origin&&!allowedOrigins.has(origin))return reply({error:'来源不允许'},403);
  if(req.method==='OPTIONS')return new Response(null,{status:204,headers});if(req.method!=='POST')return reply({error:'仅支持POST'},405);
  try{
  const base=Deno.env.get('SUPABASE_URL'),key=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),auth=req.headers.get('Authorization');

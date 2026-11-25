@@ -1,0 +1,176 @@
+{
+  "name": "recitewords",
+  "services": {
+    "db": {
+      "restart": "unless-stopped",
+      "logging": {
+        "driver": "json-file",
+        "options": {
+          "max-size": "10m",
+          "max-file": "3"
+        }
+      },
+      "image": "mirror.ccs.tencentyun.com/supabase/postgres:17.6.1.136",
+      "container_name": "rw-db",
+      "environment": {
+        "POSTGRES_PASSWORD": "${POSTGRES_PASSWORD}",
+        "PGPASSWORD": "${POSTGRES_PASSWORD}",
+        "POSTGRES_DB": "postgres",
+        "POSTGRES_HOST": "/var/run/postgresql",
+        "PGPORT": "5432",
+        "POSTGRES_PORT": "5432",
+        "JWT_EXP": "3600"
+      },
+      "volumes": [
+        "db-data:/var/lib/postgresql/data",
+        "db-config:/etc/postgresql-custom",
+        "./db/roles.sql:/docker-entrypoint-initdb.d/init-scripts/99-roles.sql:ro",
+        "./db/jwt.sql:/docker-entrypoint-initdb.d/init-scripts/99-jwt.sql:ro"
+      ],
+      "command": [
+        "postgres",
+        "-c",
+        "config_file=/etc/postgresql/postgresql.conf",
+        "-c",
+        "max_connections=80",
+        "-c",
+        "shared_buffers=256MB"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "pg_isready",
+          "-U",
+          "postgres",
+          "-h",
+          "localhost"
+        ],
+        "interval": "5s",
+        "timeout": "5s",
+        "retries": 20
+      },
+      "mem_limit": "1500m"
+    },
+    "auth": {
+      "restart": "unless-stopped",
+      "logging": {
+        "driver": "json-file",
+        "options": {
+          "max-size": "10m",
+          "max-file": "3"
+        }
+      },
+      "image": "mirror.ccs.tencentyun.com/supabase/gotrue:v2.198.0",
+      "container_name": "rw-auth",
+      "depends_on": {
+        "db": {
+          "condition": "service_healthy"
+        }
+      },
+      "environment": {
+        "GOTRUE_API_HOST": "0.0.0.0",
+        "GOTRUE_API_PORT": "9999",
+        "API_EXTERNAL_URL": "https://shaneteachesenglish.icu/auth/v1",
+        "GOTRUE_DB_DRIVER": "postgres",
+        "GOTRUE_DB_DATABASE_URL": "postgres://supabase_auth_admin:${POSTGRES_PASSWORD}@db:5432/postgres",
+        "GOTRUE_SITE_URL": "https://shaneteachesenglish.icu",
+        "GOTRUE_URI_ALLOW_LIST": "https://shaneteachesenglish.icu/**,https://www.shaneteachesenglish.icu/**",
+        "GOTRUE_DISABLE_SIGNUP": "true",
+        "GOTRUE_JWT_ADMIN_ROLES": "service_role",
+        "GOTRUE_JWT_AUD": "authenticated",
+        "GOTRUE_JWT_DEFAULT_GROUP_NAME": "authenticated",
+        "GOTRUE_JWT_EXP": "3600",
+        "GOTRUE_JWT_SECRET": "${JWT_SECRET}",
+        "GOTRUE_JWT_ISSUER": "https://shaneteachesenglish.icu/auth/v1",
+        "GOTRUE_EXTERNAL_EMAIL_ENABLED": "true",
+        "GOTRUE_MAILER_AUTOCONFIRM": "true",
+        "GOTRUE_EXTERNAL_PHONE_ENABLED": "false",
+        "GOTRUE_EXTERNAL_ANONYMOUS_USERS_ENABLED": "false"
+      },
+      "mem_limit": "256m"
+    },
+    "rest": {
+      "restart": "unless-stopped",
+      "logging": {
+        "driver": "json-file",
+        "options": {
+          "max-size": "10m",
+          "max-file": "3"
+        }
+      },
+      "image": "mirror.ccs.tencentyun.com/postgrest/postgrest:v14.18",
+      "container_name": "rw-rest",
+      "depends_on": {
+        "db": {
+          "condition": "service_healthy"
+        }
+      },
+      "environment": {
+        "PGRST_DB_URI": "postgres://authenticator:${POSTGRES_PASSWORD}@db:5432/postgres",
+        "PGRST_DB_SCHEMAS": "public",
+        "PGRST_DB_ANON_ROLE": "anon",
+        "PGRST_JWT_SECRET": "${JWT_SECRET}",
+        "PGRST_DB_MAX_ROWS": "1000",
+        "PGRST_DB_POOL": "10",
+        "PGRST_DB_EXTRA_SEARCH_PATH": "public,extensions"
+      },
+      "mem_limit": "256m"
+    },
+    "gateway": {
+      "restart": "unless-stopped",
+      "logging": {
+        "driver": "json-file",
+        "options": {
+          "max-size": "10m",
+          "max-file": "3"
+        }
+      },
+      "image": "mirror.ccs.tencentyun.com/library/nginx:1.28-alpine",
+      "container_name": "rw-gateway",
+      "depends_on": [
+        "auth",
+        "rest"
+      ],
+      "ports": [
+        "127.0.0.1:18000:8000"
+      ],
+      "volumes": [
+        "./gateway.conf:/etc/nginx/conf.d/default.conf:ro"
+      ],
+      "mem_limit": "128m"
+    },
+    "functions": {
+      "image": "mirror.ccs.tencentyun.com/supabase/edge-runtime:v1.79.2",
+      "container_name": "rw-functions",
+      "restart": "unless-stopped",
+      "mem_limit": "640m",
+      "volumes": [
+        "./functions:/home/deno/functions:ro"
+      ],
+      "env_file": [
+        "./functions.env"
+      ],
+      "environment": {
+        "SUPABASE_URL": "http://gateway:8000",
+        "SUPABASE_SERVICE_ROLE_KEY": "${SERVICE_ROLE_KEY}",
+        "SUPABASE_ANON_KEY": "${ANON_KEY}"
+      },
+      "command": [
+        "start",
+        "--main-service",
+        "/home/deno/functions/main"
+      ],
+      "logging": {
+        "driver": "json-file",
+        "options": {
+          "max-size": "10m",
+          "max-file": "3"
+        }
+      }
+    }
+  },
+  "volumes": {
+    "db-data": {},
+    "db-config": {}
+  }
+}
