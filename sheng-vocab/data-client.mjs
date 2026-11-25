@@ -1,6 +1,6 @@
 import {backendConfig} from './backend-config.mjs?v=performance-20261106';
 const day=()=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Shanghai'}).format(new Date());
-const readRPC=new Set(['rw_student_summary','rw_passed_periods','rw_mastery_books','rw_dashboard','rw_library_catalog','rw_task_catalog','rw_completed_tasks']);
+const readRPC=new Set(['rw_student_summary','rw_passed_periods','rw_mastery_books','rw_dashboard','rw_library_catalog','rw_task_catalog','rw_completed_tasks','rw_teacher_weekly']);
 const durableRPC=new Set(['rw_practice','rw_check_familiar','rw_submit_five','rw_submit_review_batch','rw_submit_group','rw_finish_mastery']);
 // A client instance belongs to ONE authenticated account. No global personal-data cache.
 export function createDataClient(transport,userId,{storage=globalThis.localStorage,now=()=>Date.now()}={}){
