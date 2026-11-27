@@ -1,0 +1,76 @@
+import {teacherWeekly} from './teacher-weekly.mjs?v=teacher-weekly-20261125';
+import {classProgress,classRosterProgress} from './class-progress.mjs?v=class-progress-20261122';
+import {bookFilter} from './book-filter.mjs?v=common-books-20261122';
+import {parseVocabulary} from './vocabulary-import.mjs?v=mastery-20261106';
+export async function teacher(api,logout,enroll){
+ const css=document.createElement('link');css.rel='stylesheet';css.href='./teacher.css?v=teacher-weekly-20261125';document.head.append(css);
+ const body=document.body,main=document.createElement('main');main.id='teacher-main';body.replaceChildren(main);
+ const nav=document.createElement('nav'),v=document.createElement('div'),notice=document.createElement('p');notice.id='msg';notice.setAttribute('role','status');main.append(nav,notice,v);
+ const tabs=['教学概览','班级与学生','我的词库','单词书','任务管理'];
+ const E=(tag,text,cls)=>{const n=document.createElement(tag);if(text!=null)n.textContent=text;if(cls)n.className=cls;return n};
+ const btn=(label,action,cls)=>{const b=E('button',label,cls);b.onclick=async()=>{b.disabled=true;try{await action()}catch(e){notice.textContent=e.message}finally{b.disabled=false}};return b};
+ const bookFilters={};
+ const get=(name)=>api('/rest/v1/'+name);let data,libs,tasks,groups;
+ async function sync(){[data,libs,tasks]=await Promise.all([api('/rest/v1/rpc/rw_dashboard','POST',{}),api('/rest/v1/rpc/rw_library_catalog','POST',{}),api('/rest/v1/rpc/rw_task_catalog','POST',{})]);groups=['七年级','八年级第一班','八年级第二班','九年级强化班',...new Set(data.members.map(m=>m.cohort||'待分班').filter(g=>!['七年级','八年级第一班','八年级第二班','九年级强化班'].includes(g)))]}
+ const members=g=>data.members.filter(m=>(m.cohort||'待分班')===g);
+ const checked=ms=>ms.filter(m=>data.checked.includes(m.user_id)).length;
+ const acc=a=>{let n=a.reduce((s,r)=>s+Number(r.n),0);return n?Math.round(100*a.reduce((s,r)=>s+Number(r.hits),0)/n)+'%':'暂无作答'};
+ const rows=(a,id)=>a.filter(r=>(r.student||r.user_id)===id);
+ function page(i,title){nav.replaceChildren(...tabs.map((t,k)=>{const b=btn('',()=>open(k),k===i?'on':'');const icon=E('span',['⌂','♧','▤','▥','☷'][k]);icon.setAttribute('aria-hidden','true');b.append(icon,E('span',t));return b}));v.replaceChildren();notice.textContent='';if(title)v.append(E('h2',title));window.scrollTo(0,0)}
+ function stats(items){const box=E('div',null,'stats');for(const [k,x] of items){const s=E('section');s.append(E('small',k),E('b',String(x)));box.append(s)}return box}
+ function resetPassword(m){
+ const f=form(1,'重置密码 · '+m.display_name);
+ f.append(E('p','保存后，请把临时密码单独交给这位学生。学生下次登录需要设置新密码。'));
+ const pwd=field(f,'临时密码（至少 8 位）','input'),again=field(f,'再次输入临时密码','input');
+ for(const input of [pwd,again]){input.type='password';input.required=true;input.autocomplete='new-password';input.minLength=8}
+ submit(f,async()=>{if(pwd.value!==again.value)throw Error('两次输入不一致');if(new TextEncoder().encode(pwd.value).length>72)throw Error('密码过长');
+ await api('/rest/v1/rpc/rw_reset_student_password','POST',{p_student:m.user_id,p_password:pwd.value});f.reset();roster(m.cohort||'待分班');notice.textContent=m.display_name+' 的临时密码已生效。'});
+ v.append(btn('取消',()=>roster(m.cohort||'待分班')));
+ }
+ function move(m){const f=form(1,'调整班级 · '+m.display_name),g=field(f,'班级','select',['七年级','八年级第一班','八年级第二班','九年级强化班'].map(x=>[x,x]));if(m.cohort)g.value=m.cohort;submit(f,async()=>{await api('/rest/v1/rpc/rw_move_student','POST',{p_student:m.user_id,p_cohort:g.value});await sync();roster(g.value)})}
+ function roster(g){page(1,g);classRosterProgress(api,v,g);const ms=members(g),ids=new Set(ms.map(m=>m.user_id));v.append(btn('‹ 全部班级',()=>open(1)),stats([['今日打卡',checked(ms)+' / '+ms.length],['本周正确率',acc(data.answers.filter(a=>ids.has(a.student)))],['累计学习人词数',data.learned.filter(r=>ids.has(r.user_id)).length]]));for(const m of members(g)){const a=rows(data.answers,m.user_id),l=rows(data.learned,m.user_id);v.append(btn(m.display_name+'　已学 '+l.length+' 词　'+acc(a),()=>{page(1,m.display_name);classProgress(api,v,m.user_id);v.append(btn('‹ '+g,()=>roster(g)),stats([['累计已学',l.length],['本周正确率',acc(a)],['今日打卡',checked([m])?'已完成':'待完成']]),E('h3','逐词作答'));if(!a.length)v.append(E('p','本周尚无任务测验记录'));for(const r of a)v.append(E('p',r.word+'　答对 '+r.hits+' / '+r.n));v.append(btn('调整班级',()=>move(m)),btn('重置密码',()=>resetPassword(m)),E('h3','已学单词'),E('p',l.map(r=>r.word).join(' · ')||'尚无记录'))},'line'))}}
+ async function library(l){l=await api.loadBook('library',l);page(2,l.title);v.append(btn('‹ 我的词库',()=>open(2)),btn('用此词库布置任务',()=>publish(l.id),'accent'),btn('编辑词书 / 测评分类',()=>create(l)),E('p',l.category==='writing'?'作文词汇 · 看中文默写英文':'阅读词汇 · 看英文选中文'));for(const w of l.words)v.append(E('p',w.en+'　'+w.zh))}
+ function form(i,title){page(i,title);const f=E('form');v.append(f);return f}
+ function field(f,label,tag,opts){const l=E('label',label),n=E(tag);if(opts)for(const [value,name] of opts){const o=E('option',name);o.value=value;n.append(o)}l.append(n);f.append(l);return n}
+ function submit(f,action){const b=E('button','保存');b.className='accent';f.append(b);f.onsubmit=async e=>{e.preventDefault();b.disabled=true;try{await action()}catch(e){notice.textContent=e.message}finally{b.disabled=false}}}
+ function create(existing){
+  const f=form(2,'制作词书 / 混合导入'),t=field(f,'词库或单元名称','input'),book=field(f,'所属单词书（可选）','input');
+  const category=field(f,'测评分类','select',[['reading','阅读词汇 · 英文选中文'],['writing','作文词汇 · 中文默写英文']]);
+  const w=field(f,'粘贴表格或文本','textarea');t.required=w.required=true;w.rows=10;
+  w.placeholder='apple\tn.\t苹果\tI eat an apple.\nlook after\t照顾\nHow are you?\t你好吗？';
+  f.append(E('p','第 6 列可选难度：1 基础、2 常用、3 进阶；不填则暂按常用层抽题。第 7、8 列可选独立测评的英文例句、中文译文。作文词书建议填写中文例句。'));
+  if(existing){t.value=existing.title;book.value=existing.book||'';category.value=existing.category||'reading';w.value=existing.words.map(x=>[x.en,x.pos||'',x.zh,x.example||'',x.translation||'',x.difficulty||'',x.test_example||'',x.test_translation||''].map(v=>'"'+String(v).replaceAll('"','""')+'"').join('\t')).join('\n')}
+  f.append(E('p','单词：英文、词性、中文、英文例句、例句中文（可选）。短语/句子：英文、中文。可直接粘贴 Excel；支持 CSV、TSV、TXT 文件。'));
+  const file=field(f,'选择文本文件','input');file.type='file';file.accept='.csv,.tsv,.txt';
+  const preview=E('section'),save=E('button','预览导入');save.className='accent';f.append(preview,save);
+  let snapshot=null,parsed=null;
+  w.oninput=()=>{snapshot=null;save.textContent='预览导入';preview.replaceChildren()};
+  file.onchange=async()=>{try{if(file.files[0]){if(file.files[0].size>1000000)throw Error('文件应小于 1 MB');w.value=await file.files[0].text();if(w.value.includes('�'))throw Error('请保存为 UTF-8 文本或直接从 Excel 复制');w.oninput()}}catch(e){notice.textContent=e.message}};
+  const template=btn('下载导入模板',()=>{
+   const text='英文\t词性\t中文\t英文例句\t例句中文\t难度\t测评英文例句\t测评例句中文\napple\tn.\t苹果\tI eat an apple.\t我吃一个苹果。\nlook after\t\t照顾\t\t\nHow are you?\t\t你好吗？\t\t\n';
+   const url=URL.createObjectURL(new Blob(['\uFEFF'+text],{type:'text/tab-separated-values;charset=utf-8'})),a=E('a');a.href=url;a.download='词书混合导入模板.tsv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)
+  });template.type='button';f.insertBefore(template,preview);
+  f.onsubmit=async e=>{
+   e.preventDefault();save.disabled=true;notice.textContent='';
+   try{
+    if(snapshot!==w.value){
+     parsed=parseVocabulary(w.value);preview.replaceChildren(E('h3','识别结果'),E('p',parsed.words.length+' 个条目 · 忽略完全重复 '+parsed.duplicates+' 条'));
+     for(const error of parsed.errors)preview.append(E('p',error));
+     for(const x of parsed.words.slice(0,20))preview.append(E('p',x.en+'　'+(x.pos||'短语 / 句子')+'　'+x.zh),...(x.example?[E('small',x.example)]:[]));
+     if(parsed.words.length>20)preview.append(E('small','预览前 20 条，保存全部 '+parsed.words.length+' 条'));
+     if(parsed.errors.length){save.textContent='修正后重新预览';return}
+     snapshot=w.value;save.textContent='确认导入 '+parsed.words.length+' 个条目';return
+    }
+    if(!t.value.trim())throw Error('请填写词库名称');
+    await api('/rest/v1/rw_libraries'+(existing?'?id=eq.'+existing.id:''),existing?'PATCH':'POST',{title:t.value.trim(),book:book.value.trim(),category:category.value,words:parsed.words});await sync();open(2)
+   }catch(e){notice.textContent=e.message}finally{save.disabled=false}
+  }
+ }
+ function publish(id){if(!libs.length){create();notice.textContent='先保存一个词库，再发布任务。';return}const f=form(4,'布置任务'),t=field(f,'任务名称','input'),g=field(f,'布置给','select',[['','全部班级'],...groups.filter(x=>x!=='待分班').map(x=>[x,x])]),l=field(f,'词库','select',libs.map(l=>[l.id,l.title]));if(id)l.value=id;t.required=true;submit(f,async()=>{await api('/rest/v1/rw_tasks','POST',{title:t.value.trim(),cohort:g.value||null,category:libs.find(x=>x.id===l.value).category||'reading',words:(await api.loadBook('library',libs.find(x=>x.id===l.value))).words});await sync();open(4);notice.textContent='已发布'})}
+ function open(i){page(i,i?tabs[i]:'');if(!i){const hero=E('section',null,'hero');hero.append(E('h1','教学概览'),btn('每周任务',async()=>{const {weeklyTeacher}=await import('./weekly.mjs?v=weekly-20261122');await weeklyTeacher(api)},'accent'),btn('课堂过关',async()=>{const {classroom}=await import('./classroom.mjs?v=oral-text-20261122');await classroom(api)},'accent'),btn('＋ 布置任务',()=>publish()));v.append(hero,stats([['今日打卡',checked(data.members)+' / '+data.members.length],['本周测验正确率',acc(data.answers)],['累计已学词数',new Set(data.learned.map(r=>r.word)).size]]));const box=E('section'),grid=E('div',null,'grid');box.append(E('h2','我的班级'),grid);for(const g of groups){const ms=members(g),b=btn('',()=>roster(g),'tile');b.append(E('small',ms.length+' 名学生'),E('h3',g),E('div','今日打卡 '+checked(ms)+' / '+ms.length+'　›'));const bar=E('span',null,'bar'),fill=E('i');fill.style.width=(100*checked(ms)/Math.max(ms.length,1))+'%';bar.append(fill);b.insertBefore(bar,b.lastChild);grid.append(b)}v.append(box);const weeklyHost=E('div');v.insertBefore(weeklyHost,box);teacherWeekly(api,weeklyHost,{onStudent:(_id,g)=>roster(g)});const weak=new Map();for(const a of data.answers){const r=weak.get(a.word)||{n:0,hits:0};r.n+=Number(a.n);r.hits+=Number(a.hits);weak.set(a.word,r)}if(weak.size){const details=E('details'),summary=E('summary','本周易错词');details.append(summary);for(const [word,r] of [...weak].filter(([,r])=>r.hits<r.n).sort((a,b)=>a[1].hits/a[1].n-b[1].hits/b[1].n).slice(0,10))details.append(E('p',word+'　答对 '+r.hits+' / '+r.n));v.append(details)}v.append(btn('刷新数据',async()=>{api.invalidate?.();await sync();open(0)}),btn('退出登录',logout));return}
+ if(i===1){for(const g of groups)v.append(btn(g+'　'+members(g).length+' 人',()=>roster(g),'line'));v.append(enroll);enroll.hidden=false;return}
+ if(i===2||i===3){v.append(btn(i===2?'＋ 新建词库':'＋ 制作 / 导入词书',create,'accent'));bookFilter({items:libs,container:v,state:bookFilters,render:(visible,list)=>{for(const l of visible)list.append(btn(l.title+'　'+l.word_count+' 词 · '+(l.category==='writing'?'作文':'阅读'),()=>library(l),'line'))}});return}
+ v.append(btn('课堂过关',async()=>{const {classroom}=await import('./classroom.mjs?v=oral-text-20261122');await classroom(api)},'accent'),btn('＋ 布置任务',()=>publish()));for(const t of tasks){const d=E('details');d.append(E('summary',t.title+' · '+(t.cohort||'全部班级')),E('p',t.word_count+' 个词'),btn('查看词汇',async()=>{const book=await api.loadBook('task',t);d.append(E('p',book.words.map(w=>w.en).join(' · ')))}));v.append(d)}}
+ try{await sync();open(0)}catch(e){notice.textContent=e.message;v.append(btn('重新加载',()=>location.reload()),btn('退出登录',logout))}
+}
+
