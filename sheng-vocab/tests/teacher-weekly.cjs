@@ -9,7 +9,7 @@ const {chromium}=require('playwright'),assert=require('assert'),fs=require('fs')
  const browser=await chromium.launch({executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',headless:true});
  try{
  const p=await browser.newPage({viewport:{width:390,height:844}}),errors=[];p.on('pageerror',e=>errors.push(e.message));
- await p.route('http://localhost/**',r=>{const f=new URL(r.request().url()).pathname.slice(1);return r.fulfill(f?{contentType:f.endsWith('.css')?'text/css':'text/javascript',body:fs.readFileSync(f,'utf8')}:{contentType:'text/html',body:'<meta name="viewport" content="width=device-width,initial-scale=1"><style>'+fs.readFileSync('index.html','utf8').split('<style>')[1].split('</style>')[0]+'</style>'})});
+ await p.route('http://localhost/**',r=>{const f=new URL(r.request().url()).pathname.slice(1);return r.fulfill(f?{contentType:f.endsWith('.css')?'text/css':'text/javascript',body:fs.readFileSync(f,'utf8')}:{contentType:'text/html',body:'<meta name="viewport" content="width=device-width,initial-scale=1"><style>'+fs.readFileSync('app.html','utf8').split('<style>')[1].split('</style>')[0]+'</style>'})});
  await p.goto('http://localhost/');
  await p.evaluate(async()=>{
   const {teacher}=await import('/teacher.mjs');window.calls=0;window.fail=false;
