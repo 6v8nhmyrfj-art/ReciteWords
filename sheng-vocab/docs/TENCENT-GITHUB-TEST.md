@@ -49,3 +49,5 @@ IP 测试 API 仅代理 `/auth/v1/`、`/rest/v1/`、`/functions/v1/`。
 IP 证书为短期证书，须保持既有续期任务和 ACME 验证通路正常。
 自有域名启用后也必须保留证书自动续期。每日数据库备份任务保留。
 语音仍使用现有云端识别；Vosk/Whisper 离线实验没有自动接替正式接口。
+
+真实 GitHub 页验收发现并修复 Auth 预检缺失跨域头的问题：公网代理使用明确来源白名单处理 OPTIONS，保留实际请求的身份与业务权限验证。完整已验证示例见 deploy/tencent/nginx-github-api.conf.example；换域名时同步替换证书、server_name、跳转地址及来源白名单。
