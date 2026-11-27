@@ -1,9 +1,9 @@
-import {teacherWeekly} from './teacher-weekly.mjs?v=teacher-weekly-20261125';
+import {teacherWeekly} from './teacher-weekly.mjs?v=overview-20261127';
 import {classProgress,classRosterProgress} from './class-progress.mjs?v=class-progress-20261122';
 import {bookFilter} from './book-filter.mjs?v=common-books-20261122';
 import {parseVocabulary} from './vocabulary-import.mjs?v=mastery-20261106';
 export async function teacher(api,logout,enroll){
- const css=document.createElement('link');css.rel='stylesheet';css.href='./teacher.css?v=teacher-weekly-20261125';document.head.append(css);
+ const css=document.createElement('link');css.rel='stylesheet';css.href='./teacher.css?v=overview-20261127';document.head.append(css);
  const body=document.body,main=document.createElement('main');main.id='teacher-main';body.replaceChildren(main);
  const nav=document.createElement('nav'),v=document.createElement('div'),notice=document.createElement('p');notice.id='msg';notice.setAttribute('role','status');main.append(nav,notice,v);
  const tabs=['教学概览','班级与学生','我的词库','单词书','任务管理'];

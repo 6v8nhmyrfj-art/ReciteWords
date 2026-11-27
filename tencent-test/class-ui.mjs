@@ -32,7 +32,7 @@ async function loadRoom(){
  if(!member)throw Error('此账号尚未加入班级，请联系老师。');
  if(member.role==='student'&&!member.password_changed){el('login').hidden=true;el('welcome').hidden=true;el('change').hidden=false;el('room').hidden=true;el('msg').textContent='';return}
  dataClient=createDataClient(api,me.id);
- if(member.role==='teacher'){const {teacher}=await import('./teacher.mjs?v=teacher-weekly-20261125');const signout=el('logout');await teacher(dataClient,()=>signout.click(),el('enroll'));return}
+ if(member.role==='teacher'){const {teacher}=await import('./teacher.mjs?v=overview-20261127');const signout=el('logout');await teacher(dataClient,()=>signout.click(),el('enroll'));return}
  const {student}=await import('./student.mjs?v=oral-fix-20261127');const signout=el('logout');await student(dataClient,me,member,basic,()=>signout.click());
 }
 el('login').onsubmit=guard(async e=>{token='';const data=Object.fromEntries(new FormData(e.target));data.email=loginIdentity(data.email);const session=await api('/auth/v1/token?grant_type=password','POST',data);remember(session);e.target.reset();await loadRoom()});
