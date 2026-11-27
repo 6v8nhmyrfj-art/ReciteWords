@@ -1,6 +1,6 @@
 import {createDataClient} from './data-client.mjs?v=teacher-weekly-20261125';
 import {backendConfig} from './backend-config.mjs?v=oral-text-20261122';
-import {createClassClient,loginIdentity} from './class-api.mjs?v=oral-text-20261122';
+import {createClassClient,loginIdentity} from './class-api.mjs?v=oral-fix-20261127';
 const el=id=>document.getElementById(id);
 const storageKey='rw-cloud-session-v2:'+backendConfig.environment;
 if(backendConfig.environment==='nnooeadfgsvbddrjwyan'&&!localStorage.getItem(storageKey)&&localStorage.getItem('rw-cloud-session-v1')){localStorage.setItem(storageKey,localStorage.getItem('rw-cloud-session-v1'));localStorage.removeItem('rw-cloud-session-v1')}
@@ -11,7 +11,7 @@ function remember(s){saved={access_token:s.access_token,refresh_token:s.refresh_
 function clearSession(){dataClient?.clear();localStorage.removeItem(storageKey);if(backendConfig.environment==='nnooeadfgsvbddrjwyan')localStorage.removeItem('rw-cloud-session-v1');sessionStorage.removeItem('rw-session');token='';saved={}}
 function loginScreen(){clearSession();location.reload()}
 const raw=createClassClient(async (url,{method,headers,body})=>{
- let r;try{r=await fetch(url,{method,headers,body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(15000)})}catch{throw Error('网络连接超时或中断，请重试。未确认保存的作答会保留。')}
+ let r;try{r=await fetch(url,{method,headers,body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(url.includes('/functions/v1/')?45000:15000)})}catch{throw Error('网络连接超时或中断，请重试。未确认保存的作答会保留。')}
  const t=await r.text();return {status:r.status,data:t?JSON.parse(t):null};
 },()=>token);
 async function api(path,method,body){
@@ -19,7 +19,11 @@ async function api(path,method,body){
   refreshing??=raw('/auth/v1/token?grant_type=refresh_token','POST',{refresh_token:saved.refresh_token}).then(remember).catch(e=>{if([400,401,403].includes(e.status))loginScreen();throw e}).finally(()=>{refreshing=null});
   await refreshing;
  }
- return raw(path,method,body)
+ try{return await raw(path,method,body)}catch(e){
+  if(e.status!==401||!saved.refresh_token||path.startsWith('/auth/'))throw e;
+  refreshing??=raw('/auth/v1/token?grant_type=refresh_token','POST',{refresh_token:saved.refresh_token}).then(remember).finally(()=>{refreshing=null});
+  await refreshing;return raw(path,method,body);
+ }
 }
 function guard(fn){return async e=>{e?.preventDefault();try{await fn(e)}catch(err){el('msg').textContent=err.message}}}
 async function loadRoom(){
@@ -29,7 +33,7 @@ async function loadRoom(){
  if(member.role==='student'&&!member.password_changed){el('login').hidden=true;el('welcome').hidden=true;el('change').hidden=false;el('room').hidden=true;el('msg').textContent='';return}
  dataClient=createDataClient(api,me.id);
  if(member.role==='teacher'){const {teacher}=await import('./teacher.mjs?v=teacher-weekly-20261125');const signout=el('logout');await teacher(dataClient,()=>signout.click(),el('enroll'));return}
- const {student}=await import('./student.mjs?v=daily-oral-20261124');const signout=el('logout');await student(dataClient,me,member,basic,()=>signout.click());
+ const {student}=await import('./student.mjs?v=oral-fix-20261127');const signout=el('logout');await student(dataClient,me,member,basic,()=>signout.click());
 }
 el('login').onsubmit=guard(async e=>{token='';const data=Object.fromEntries(new FormData(e.target));data.email=loginIdentity(data.email);const session=await api('/auth/v1/token?grant_type=password','POST',data);remember(session);e.target.reset();await loadRoom()});
 el('publish').onsubmit=guard(async e=>{const f=new FormData(e.target),words=f.get('words').trim().split(/\r?\n/).map(line=>{const [en,zh]=line.trim().split(/\t+/);if(!en||!zh)throw Error('请从表格复制英文和释义两列。');return {en,zh}});await api('/rest/v1/rw_tasks','POST',{title:f.get('title').trim(),words});e.target.reset();await loadRoom();el('msg').textContent='任务已发布'});

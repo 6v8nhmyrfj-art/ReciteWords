@@ -1,9 +1,9 @@
 // Captures audio only: no transcription is treated as a pronunciation score.
-export function pronunciationRecorder({container,onRecording,onStart=()=>{},maxSeconds=12}){
+export function pronunciationRecorder({container,onRecording,onStart=()=>{},onBusy=()=>{},maxSeconds=12}){
  const button=document.createElement('button'),status=document.createElement('p');button.type='button';button.className='pr-record';button.textContent='开始录音';status.className='pr-status';status.setAttribute('role','status');container.append(button,status);
  let phase='idle',disposed=false,generation=0,recorder,stream,timer;
  const release=()=>{clearTimeout(timer);stream?.getTracks().forEach(t=>t.stop());stream=null};
- const set=(p,message='')=>{phase=p;button.disabled=['opening','sending'].includes(p);button.textContent=p==='recording'?'结束录音':p==='opening'?'正在打开麦克风…':p==='sending'?'正在处理…':'开始录音';button.setAttribute('aria-pressed',String(p==='recording'));status.textContent=message};
+ const set=(p,message='')=>{phase=p;onBusy(p!=='idle');button.disabled=['opening','sending'].includes(p);button.textContent=p==='recording'?'结束录音':p==='opening'?'正在打开麦克风…':p==='sending'?'正在处理…':'开始录音';button.setAttribute('aria-pressed',String(p==='recording'));status.textContent=message};
  function cancel(){generation++;if(recorder){recorder.onstop=null;if(recorder.state!=='inactive')recorder.stop();recorder=null}release();if(!disposed)set('idle','录音已取消')}
  async function start(){
   const stamp=++generation;onStart();set('opening');
