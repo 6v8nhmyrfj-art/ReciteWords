@@ -18,17 +18,12 @@ export async function teacher(api,logout,enroll){
  const rows=(a,id)=>a.filter(r=>(r.student||r.user_id)===id);
  function page(i,title){nav.replaceChildren(...tabs.map((t,k)=>{const b=btn('',()=>open(k),k===i?'on':'');const icon=E('span',['⌂','♧','▤','▥','☷'][k]);icon.setAttribute('aria-hidden','true');b.append(icon,E('span',t));return b}));v.replaceChildren();notice.textContent='';if(title)v.append(E('h2',title));window.scrollTo(0,0)}
  function stats(items){const box=E('div',null,'stats');for(const [k,x] of items){const s=E('section');s.append(E('small',k),E('b',String(x)));box.append(s)}return box}
- function resetPassword(m){
- const f=form(1,'重置密码 · '+m.display_name);
- f.append(E('p','保存后，请把临时密码单独交给这位学生。学生下次登录需要设置新密码。'));
- const pwd=field(f,'临时密码（至少 8 位）','input'),again=field(f,'再次输入临时密码','input');
- for(const input of [pwd,again]){input.type='password';input.required=true;input.autocomplete='new-password';input.minLength=8}
- submit(f,async()=>{if(pwd.value!==again.value)throw Error('两次输入不一致');if(new TextEncoder().encode(pwd.value).length>72)throw Error('密码过长');
- await api('/rest/v1/rpc/rw_reset_student_password','POST',{p_student:m.user_id,p_password:pwd.value});f.reset();roster(m.cohort||'待分班');notice.textContent=m.display_name+' 的临时密码已生效。'});
- v.append(btn('取消',()=>roster(m.cohort||'待分班')));
+ async function resetPassword(m){
+ await api('/rest/v1/rpc/rw_reset_student_password','POST',{p_student:m.user_id,p_password:'12345678'});
+ notice.textContent=m.display_name+' 的密码已重置为 12345678，下次登录须修改密码。';
  }
  function move(m){const f=form(1,'调整班级 · '+m.display_name),g=field(f,'班级','select',['七年级','八年级第一班','八年级第二班','九年级强化班'].map(x=>[x,x]));if(m.cohort)g.value=m.cohort;submit(f,async()=>{await api('/rest/v1/rpc/rw_move_student','POST',{p_student:m.user_id,p_cohort:g.value});await sync();roster(g.value)})}
- function roster(g){page(1,g);classRosterProgress(api,v,g);const ms=members(g),ids=new Set(ms.map(m=>m.user_id));v.append(btn('‹ 全部班级',()=>open(1)),stats([['今日打卡',checked(ms)+' / '+ms.length],['本周正确率',acc(data.answers.filter(a=>ids.has(a.student)))],['累计学习人词数',data.learned.filter(r=>ids.has(r.user_id)).length]]));for(const m of members(g)){const a=rows(data.answers,m.user_id),l=rows(data.learned,m.user_id);v.append(btn(m.display_name+'　已学 '+l.length+' 词　'+acc(a),()=>{page(1,m.display_name);classProgress(api,v,m.user_id);v.append(btn('‹ '+g,()=>roster(g)),stats([['累计已学',l.length],['本周正确率',acc(a)],['今日打卡',checked([m])?'已完成':'待完成']]),E('h3','逐词作答'));if(!a.length)v.append(E('p','本周尚无任务测验记录'));for(const r of a)v.append(E('p',r.word+'　答对 '+r.hits+' / '+r.n));v.append(btn('调整班级',()=>move(m)),btn('重置密码',()=>resetPassword(m)),E('h3','已学单词'),E('p',l.map(r=>r.word).join(' · ')||'尚无记录'))},'line'))}}
+ function roster(g){page(1,g);classRosterProgress(api,v,g);const ms=members(g),ids=new Set(ms.map(m=>m.user_id));v.append(btn('‹ 全部班级',()=>open(1)),stats([['今日打卡',checked(ms)+' / '+ms.length],['本周正确率',acc(data.answers.filter(a=>ids.has(a.student)))],['累计学习人词数',data.learned.filter(r=>ids.has(r.user_id)).length]]));for(const m of members(g)){const a=rows(data.answers,m.user_id),l=rows(data.learned,m.user_id);v.append(btn(m.display_name+'　已学 '+l.length+' 词　'+acc(a),()=>{page(1,m.display_name);classProgress(api,v,m.user_id);v.append(btn('‹ '+g,()=>roster(g)),stats([['累计已学',l.length],['本周正确率',acc(a)],['今日打卡',checked([m])?'已完成':'待完成']]),E('h3','逐词作答'));if(!a.length)v.append(E('p','本周尚无任务测验记录'));for(const r of a)v.append(E('p',r.word+'　答对 '+r.hits+' / '+r.n));v.append(btn('调整班级',()=>move(m)),btn('重置密码为 12345678',()=>resetPassword(m)),E('h3','已学单词'),E('p',l.map(r=>r.word).join(' · ')||'尚无记录'))},'line'))}}
  async function library(l){l=await api.loadBook('library',l);page(2,l.title);v.append(btn('‹ 我的词库',()=>open(2)),btn('用此词库布置任务',()=>publish(l.id),'accent'),btn('编辑词书 / 测评分类',()=>create(l)),E('p',l.category==='writing'?'作文词汇 · 看中文默写英文':'阅读词汇 · 看英文选中文'));for(const w of l.words)v.append(E('p',w.en+'　'+w.zh))}
  function form(i,title){page(i,title);const f=E('form');v.append(f);return f}
  function field(f,label,tag,opts){const l=E('label',label),n=E(tag);if(opts)for(const [value,name] of opts){const o=E('option',name);o.value=value;n.append(o)}l.append(n);f.append(l);return n}
