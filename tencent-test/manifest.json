@@ -3,7 +3,7 @@
   "environment": "tencent-test-20261127",
   "api": "https://129.204.40.183",
   "files": {
-    "backend-config.mjs": "c4de9acd9094d9d8512a17930a2e5b38a7172936c5c4ce1e6d5cf87b80ffa087",
+    "backend-config.mjs": "f6c50bfdafc332b05ace3ec5909f6166a84a28f2bbec03eb312bbc658297a194",
     "book-filter.css": "f6315e7d64ce7fa56adbae08526ef84dc2e20128a01c439acb09c813281afa3c",
     "book-filter.mjs": "54e288f4f22fbe830296de9c0ebc65d2b298781efe2891b1800f7e9eca951bbc",
     "class-api.mjs": "2e37b677d3affae30ace68527090bc3b49875f9ab99fa481516c8063a4c99fdd",
@@ -16,7 +16,7 @@
     "daily-oral.mjs": "bc500924eace242c98a8bef7ca50e55f07cd866bd6712a81f68f9eb5f7075eee",
     "data-client.mjs": "f8bd4352ae36622ff0724a5145b85157fde6b853a4da45cec2ca56285211e478",
     "group-study.mjs": "067d7dbec3fd97c723e77b157d89ff6259d49ed7003dfff750b312ee5f4efd5b",
-    "index.html": "efd8ba090840b4880bc0a681ed47f833087992771a6572863e12b00a804bccfb",
+    "index.html": "b21e1ceea34a34d66ef626f24b774a76f621bfe929b84c7b94c56e1d3a329ef3",
     "mastery.mjs": "3afbdd7cbc809bed666dd779bba5a17eefb0cbf551ec13e8cb6afdedbafd869c",
     "oral-answer.mjs": "0ad2152866bd9ddd767e77a8113d26facb710714a4d41207c067eccc6fda9262",
     "pronunciation-flow.mjs": "315b417adc1640b0fe7eaf542fdfa2420b4cc3316db63f091de6d1d712a41b54",

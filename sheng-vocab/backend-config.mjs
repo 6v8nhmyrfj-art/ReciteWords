@@ -1,10 +1,2 @@
-// Public client settings only. Never put a service_role key or database password here.
-export const backendConfig=Object.freeze({
- provider:'supabase',
- baseUrl:'https://nnooeadfgsvbddrjwyan.supabase.co',
- publishableKey:'sb_publishable_NAlh-hkQ2852o8ElBw06ZQ_M-kIQ0pY',
- // Enable only after real Cloudflare transcription and semantic grading are verified.
- oralEnabled:true,
- contractVersion:1,
- environment:'nnooeadfgsvbddrjwyan',
-});
+// Public production settings. Tencent is the default backend; no service-role secrets here.
+export const backendConfig=Object.freeze({"provider": "supabase", "contractVersion": 1, "oralEnabled": true, "baseUrl": "https://129.204.40.183", "publishableKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzk1NTkzMTA5LCJleHAiOjE5NTMyNzMxMDl9.STs1-bsgWsoyaN4Bp8-4luQr86xvLPadlTWj0SdRnMk", "environment": "tencent-test-20261127"});

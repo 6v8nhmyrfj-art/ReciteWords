@@ -12,7 +12,8 @@ if cfg['publishableKey'].startswith('eyJ'):
 assert not out.exists(),'Choose a new output directory'
 out.mkdir(parents=True);site=out/'site';site.mkdir()
 for f in root.iterdir():
- if f.name=='index.html' or f.suffix in ('.mjs','.css'):shutil.copy2(f,site/f.name)
+ if f.name=='index.html':shutil.copy2(root/'app.html' if (root/'app.html').exists() else f,site/'index.html')
+ elif f.suffix in ('.mjs','.css'):shutil.copy2(f,site/f.name)
 (site/'backend-config.mjs').write_text('export const backendConfig=Object.freeze('+json.dumps({'provider':'supabase','contractVersion':1,'oralEnabled':True,**cfg},ensure_ascii=False)+');\n')
 if cfg.get('deploymentLabel'):
  label=html.escape(cfg['deploymentLabel'])
