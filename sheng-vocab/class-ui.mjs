@@ -34,8 +34,8 @@ async function loadRoom(){
  if(member.role==='student'){const security=await api('/rest/v1/rpc/rw_student_security','POST',{p_action:'status'});if(!member.password_changed||!security.configured){accountSecurity.showSetup(loginPassword);loginPassword='';return}}
  loginPassword='';
  dataClient=createDataClient(api,me.id);
- if(member.role==='teacher'){const {teacher}=await import('./teacher.mjs?v=reset-default-20261127');const signout=el('logout');await teacher(dataClient,()=>signout.click(),el('enroll'));return}
- const {student}=await import('./student.mjs?v=oral-fix-20261127');const signout=el('logout');await student(dataClient,me,member,basic,()=>signout.click());
+ if(member.role==='teacher'){const {teacher}=await import('./teacher.mjs?v=oral-withdraw-20261128');const signout=el('logout');await teacher(dataClient,()=>signout.click(),el('enroll'));return}
+ const {student}=await import('./student.mjs?v=oral-withdraw-20261128');const signout=el('logout');await student(dataClient,me,member,basic,()=>signout.click());
 }
 el('login').onsubmit=guard(async e=>{token='';const data=Object.fromEntries(new FormData(e.target));data.email=loginIdentity(data.email);const session=await api('/auth/v1/token?grant_type=password','POST',data);remember(session);loginPassword=data.password;e.target.reset();await loadRoom()});
 el('publish').onsubmit=guard(async e=>{const f=new FormData(e.target),words=f.get('words').trim().split(/\r?\n/).map(line=>{const [en,zh]=line.trim().split(/\t+/);if(!en||!zh)throw Error('请从表格复制英文和释义两列。');return {en,zh}});await api('/rest/v1/rw_tasks','POST',{title:f.get('title').trim(),words});e.target.reset();await loadRoom();el('msg').textContent='任务已发布'});

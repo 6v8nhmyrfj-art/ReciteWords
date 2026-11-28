@@ -36,7 +36,7 @@ export async function teacherWeekly(api,host,{cohort='',onStudent}={}){
   for(const group of groups){const members=students.filter(s=>s.cohort===group).sort((a,b)=>a.name.localeCompare(b.name,'zh-CN')),card=el('section',null,'to-group'),title=el('h3',group);title.append(el('small',members.length+'人'));card.append(title);
    for(const s of members){const row=button('',()=>detail(s));row.className='to-student';row.setAttribute('aria-label',s.name+' 周任务详情');const right=el('span',null,'to-result');right.append(el('b',s.percent===null?'未布置':s.percent===100?'✓ 100%':s.percent+'%',s.percent===100?'to-complete':''),el('small',s.percent===null?'—':`${s.completed}/${s.tasks.length} 项`));if(s.overdue)right.append(el('em','逾期'+s.overdue));const bar=el('progress');bar.max=100;bar.value=s.percent??0;bar.setAttribute('aria-label',s.name+'完成比例');right.append(bar);row.append(el('strong',s.name),right);card.append(row)}grid.append(card)
   }
-  container.append(grid,el('p','学习 / 复习 + 每日口头抽查 · 百分比为任务完成进度 · 点击姓名查看明细','to-note'));
+  container.append(grid,el('p','按已布置任务统计完成进度 · 点击姓名查看明细','to-note'));
  }
  function screenshot(){
   const d=el('dialog',null,'to-shot'),bar=el('div',null,'to-shot-tools'),sheet=el('div',null,'to-sheet');bar.append(el('small','截图视图 · 全部学生'),button('关闭截图',()=>d.close()));d.append(bar,sheet);
