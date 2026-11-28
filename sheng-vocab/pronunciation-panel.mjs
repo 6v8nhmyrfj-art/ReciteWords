@@ -11,6 +11,7 @@ export function pronunciationPanel({container,state,words,onJudge,onPractice,onC
  function render(){cleanup();if(disposed)return;root.replaceChildren();const stamp=epoch,p=pronunciationProgress(flow);
   const top=E('header',null,'pr-top');top.append(button('‹ 返回',()=>onExit?.()),E('span','① 发音　→　② 词义'));root.append(top);
   const card=E('div',null,'pr-card'),progress=E('progress');progress.max=p.total;progress.value=p.passed;progress.setAttribute('aria-label','发音已通过');
+  if(flow.feedbackText)card.append(E('p',flow.feedbackText,'pr-status'));
   card.append(E('small',`已通过 ${p.passed}/${p.total} · 待通过 ${p.remaining}`),progress);root.append(card);
   if(p.phase==='complete'){card.append(E('h1','发音全部通过'),E('p','进度已保存，可以继续测试词义。'),button('进入词义测试',()=>onComplete(flow),'pr-primary'));return}
   const practice=p.phase==='practice',word=words[p.index-1];if(!word)throw Error('词书快照与测试范围不一致');

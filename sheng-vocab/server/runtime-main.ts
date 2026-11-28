@@ -1,4 +1,4 @@
-const allowed=new Set(['rw-oral','rw-daily-oral','rw-create-student']);
+const allowed=new Set(['rw-oral','rw-daily-oral','rw-create-student','rw-pronunciation']);
 Deno.serve(async req=>{
  const name=new URL(req.url).pathname.split('/')[1];
  if(!allowed.has(name))return new Response('Not found',{status:404});

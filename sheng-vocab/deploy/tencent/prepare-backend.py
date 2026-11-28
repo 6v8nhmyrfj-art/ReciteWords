@@ -18,8 +18,8 @@ def private_file(name,text):
 private_file('credentials.json',json.dumps(c))
 private_file('.env','\n'.join(k+'='+v for k,v in c.items())+'\n')
 private_file('functions.env','CLOUDFLARE_ACCOUNT_ID=\nCLOUDFLARE_API_TOKEN=\n')
-mapping={'main':['runtime-main.ts'],'rw-create-student':['create-student-index.ts'],'rw-daily-oral':['daily-oral-index.ts','cloudflare-ai.mjs'],'rw-oral':['oral-index.ts','oral-handler.mjs','cloudflare-ai.mjs','local-grade.mjs']}
+mapping={'rw-pronunciation':['pronunciation-index.ts','cloudflare-ai.mjs','pronunciation-flow.mjs'],'main':['runtime-main.ts'],'rw-create-student':['create-student-index.ts'],'rw-daily-oral':['daily-oral-index.ts','cloudflare-ai.mjs'],'rw-oral':['oral-index.ts','oral-handler.mjs','cloudflare-ai.mjs','local-grade.mjs']}
 for slug,files in mapping.items():
  d=out/'functions'/slug;d.mkdir(parents=True)
- for i,name in enumerate(files):shutil.copy2(root/'server'/name,d/('index.ts' if i==0 else name))
+ for i,name in enumerate(files):shutil.copy2((root/'server'/name) if (root/'server'/name).exists() else root/name,d/('index.ts' if i==0 else name))
 print('Prepared backend; secrets are private files and are not printed. Configure functions.env before starting.')

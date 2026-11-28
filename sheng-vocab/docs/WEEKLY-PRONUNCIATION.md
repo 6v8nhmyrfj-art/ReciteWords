@@ -1,0 +1,11 @@
+# New weekly vocabulary tasks: pronunciation gate
+
+Released 2026-11-28, Tencent production. Existing weekly targets have pronunciation_required=false; new targets default true, effective only for kind=vocabulary. Review and transform tasks do not acquire an extra speech stage. Withdrawn November 23 oral-check assignments stay withdrawn.
+
+Flow: test each entry independently, retain correct entries, listen/follow missed entries, independently retest only misses until all pass, then enable meaning test. One server-persisted state per student/item/goal revision, plus compare-and-swap version. Returning to the task resumes it. Goal changes produce a fresh state. Correct entries aren't retested within that task.
+
+POST rw-pronunciation accepts a session/version and recorded audio only. Server validates ownership/cohort/revision, enforces existing speech quota, transcribes English through the existing Cloudflare adapter (no expected-word prompt), compares normalized recognized English to the frozen target and commits flow. Clients cannot submit their own transcript or pass state. Failures don't advance; stale submissions return the current state. This is ASR-based word recognition, not phoneme/stress assessment, and can be wrong on noisy audio, homophones, names and isolated short words. No professional pronunciation score is claimed.
+
+Deployment: apply deploy/tencent/migrations/weekly-pronunciation.sql first, deploy server/pronunciation-index.ts as rw-pronunciation/index.ts with cloudflare-ai.mjs and pronunciation-flow.mjs, update runtime-main.ts route and restart rw-functions, then build/publish frontend. prepare-backend.py includes the worker for future migrations. Full database backups include sessions; portable business export v5 adds rw_pronunciation_sessions. Preserve Auth and private recovery data separately as documented.
+
+Validation: flow/panel tests verify failures, practice, retest, persistence and microphone cleanup. Live Tencent temporary-account test used actual apple WAV through the worker: recognized apple in 1.93 seconds, persisted pass, idempotent retry, resume, blocked meaning test beforehand and unlocked afterward, forged client commit denied. QA account and task fixtures removed. This synthetic audio test does not establish real-student accuracy.
